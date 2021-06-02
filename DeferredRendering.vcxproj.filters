@@ -1,0 +1,143 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="Header Files">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hh;hpp;hxx;h++;hm;inl;inc;ipp;xsd</Extensions>
+    </Filter>
+    <Filter Include="Resource Files">
+      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
+      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
+    </Filter>
+    <Filter Include="Source Files\app">
+      <UniqueIdentifier>{4be98175-c759-46cb-9471-b5dac21ee7c3}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\shaders">
+      <UniqueIdentifier>{55b6f0e6-4f5b-42af-b344-4de34c655216}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\utils">
+      <UniqueIdentifier>{cb81d0b3-1403-4011-9640-6e864c0d60ae}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\utils">
+      <UniqueIdentifier>{82729018-a26e-4e57-9b81-3296901fcd3c}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\app">
+      <UniqueIdentifier>{076bea44-832d-4433-9424-9935363193c9}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\hpg">
+      <UniqueIdentifier>{35ff432f-7167-4dea-babb-886d8c43de56}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\hpg">
+      <UniqueIdentifier>{78202465-8b41-4c4c-830f-8d04740c9ba5}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\common">
+      <UniqueIdentifier>{a8d35fda-425f-485e-8521-5352612c2067}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\common">
+      <UniqueIdentifier>{0baab76d-f115-4eab-88e3-22a4dc0a816b}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="src\utils\Utils.cpp">
+      <Filter>Source Files\utils</Filter>
+    </ClCompile>
+    <ClCompile Include="src\hpg\DepthResource.cpp">
+      <Filter>Source Files\hpg</Filter>
+    </ClCompile>
+    <ClCompile Include="src\hpg\FramebufferData.cpp">
+      <Filter>Source Files\hpg</Filter>
+    </ClCompile>
+    <ClCompile Include="src\hpg\VulkanSetup.cpp">
+      <Filter>Source Files\hpg</Filter>
+    </ClCompile>
+    <ClCompile Include="src\app\Application.cpp">
+      <Filter>Source Files\app</Filter>
+    </ClCompile>
+    <ClCompile Include="src\common\Camera.cpp">
+      <Filter>Source Files\common</Filter>
+    </ClCompile>
+    <ClCompile Include="src\common\Model.cpp">
+      <Filter>Source Files\common</Filter>
+    </ClCompile>
+    <ClCompile Include="src\hpg\Buffers.cpp">
+      <Filter>Source Files\hpg</Filter>
+    </ClCompile>
+    <ClCompile Include="src\common\Texture.cpp">
+      <Filter>Source Files\common</Filter>
+    </ClCompile>
+    <ClCompile Include="src\hpg\Image.cpp">
+      <Filter>Source Files\hpg</Filter>
+    </ClCompile>
+    <ClCompile Include="src\hpg\GBuffer.cpp">
+      <Filter>Source Files\hpg</Filter>
+    </ClCompile>
+    <ClCompile Include="src\hpg\SwapChain.cpp">
+      <Filter>Source Files\hpg</Filter>
+    </ClCompile>
+    <ClCompile Include="src\main.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="include\utils\Utils.h">
+      <Filter>Header Files\utils</Filter>
+    </ClInclude>
+    <ClInclude Include="include\app\Application.h">
+      <Filter>Header Files\app</Filter>
+    </ClInclude>
+    <ClInclude Include="include\hpg\DepthResource.h">
+      <Filter>Header Files\hpg</Filter>
+    </ClInclude>
+    <ClInclude Include="include\hpg\FramebufferData.h">
+      <Filter>Header Files\hpg</Filter>
+    </ClInclude>
+    <ClInclude Include="include\hpg\Shader.h">
+      <Filter>Header Files\hpg</Filter>
+    </ClInclude>
+    <ClInclude Include="include\hpg\VulkanSetup.h">
+      <Filter>Header Files\hpg</Filter>
+    </ClInclude>
+    <ClInclude Include="include\app\AppConstants.h">
+      <Filter>Header Files\app</Filter>
+    </ClInclude>
+    <ClInclude Include="include\common\Camera.h">
+      <Filter>Header Files\common</Filter>
+    </ClInclude>
+    <ClInclude Include="include\common\Model.h">
+      <Filter>Header Files\common</Filter>
+    </ClInclude>
+    <ClInclude Include="include\common\Orientation.h">
+      <Filter>Header Files\common</Filter>
+    </ClInclude>
+    <ClInclude Include="include\utils\Assert.h">
+      <Filter>Header Files\utils</Filter>
+    </ClInclude>
+    <ClInclude Include="include\hpg\Buffers.h">
+      <Filter>Header Files\hpg</Filter>
+    </ClInclude>
+    <ClInclude Include="include\common\Texture.h">
+      <Filter>Header Files\common</Filter>
+    </ClInclude>
+    <ClInclude Include="include\hpg\Image.h">
+      <Filter>Header Files\hpg</Filter>
+    </ClInclude>
+    <ClInclude Include="include\hpg\GBuffer.h">
+      <Filter>Header Files\hpg</Filter>
+    </ClInclude>
+    <ClInclude Include="include\hpg\SwapChain.h">
+      <Filter>Header Files\hpg</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="src\shaders\base.vert">
+      <Filter>Source Files\shaders</Filter>
+    </None>
+    <None Include="src\shaders\phong.frag">
+      <Filter>Source Files\shaders</Filter>
+    </None>
+  </ItemGroup>
+</Project>
