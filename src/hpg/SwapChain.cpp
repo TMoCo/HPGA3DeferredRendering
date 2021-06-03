@@ -361,8 +361,8 @@ void SwapChain::createForwardPipeline(VkDescriptorSetLayout* descriptorSetLayout
     auto bindingDescription    = model->getBindingDescriptions(0);
     auto attributeDescriptions = model->getAttributeDescriptions(0);
 
-    VkViewport viewport{ (float)extent.height, 1.0f, 0.0f, (float)extent.width, 0.0f, 0.0f };
-    VkRect2D scissor{ { 0, 0 }, extent};
+    VkViewport viewport{ 0.0f, 0.0f, (float)extent.width, (float)extent.height, 0.0f, 1.0f };
+    VkRect2D scissor{ { 0, 0 }, extent };
 
     VkPipelineColorBlendAttachmentState colorBlendAttachment{};
     colorBlendAttachment.colorWriteMask = 
@@ -372,7 +372,7 @@ void SwapChain::createForwardPipeline(VkDescriptorSetLayout* descriptorSetLayout
     VkPipelineShaderStageCreateInfo vertShaderStageInfo =
         utils::initPipelineShaderStageCreateInfo(VK_SHADER_STAGE_VERTEX_BIT, vertShaderModule, "main");
     VkPipelineShaderStageCreateInfo fragShaderStageInfo =
-        utils::initPipelineShaderStageCreateInfo(VK_SHADER_STAGE_VERTEX_BIT, fragShaderModule, "main");
+        utils::initPipelineShaderStageCreateInfo(VK_SHADER_STAGE_FRAGMENT_BIT, fragShaderModule, "main");
     VkPipelineVertexInputStateCreateInfo vertexInputInfo = 
         utils::initPipelineVertexInputStateCreateInfo(1, &bindingDescription, 
             static_cast<uint32_t>(attributeDescriptions.size()), attributeDescriptions.data());

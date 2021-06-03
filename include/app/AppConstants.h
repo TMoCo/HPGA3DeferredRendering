@@ -37,7 +37,7 @@ const glm::vec3 WORLD_FRONT = glm::vec3(0.0f, 0.0f, -1.0f);
 const std::string MODEL_PATH = "C:\\Users\\Tommy\\Documents\\COMP4\\5822HighPerformanceGraphics\\A3\\Assets\\SuzanneGltf\\Suzanne.gltf";
 
 // vertex shaders
-const std::string VERT_SHADER = "C:\\Users\\Tommy\\Documents\\COMP4\\5822HighPerformanceGraphics\\A3\\DeferredRendering\\src\\shaders\\base.spv";
-const std::string FRAG_SHADER = "C:\\Users\\Tommy\\Documents\\COMP4\\5822HighPerformanceGraphics\\A3\\DeferredRendering\\src\\shaders\\phong.spv";
+const std::string VERT_SHADER = "C:\\Users\\Tommy\\Documents\\COMP4\\5822HighPerformanceGraphics\\A3\\DeferredRendering\\src\\shaders\\offscreen.vert.spv";
+const std::string FRAG_SHADER = "C:\\Users\\Tommy\\Documents\\COMP4\\5822HighPerformanceGraphics\\A3\\DeferredRendering\\src\\shaders\\offscreen.frag.spv";
 
 #endif // !APP_CONSTANTS_H

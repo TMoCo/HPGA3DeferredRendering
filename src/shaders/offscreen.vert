@@ -31,6 +31,5 @@ void main() {
 
 	fragPos = (ubo.model * vec4(inPosition, 1.0f)).xyz;
     fragNormal = inNormal;
-    // fragTexCoord = inTexCoord;
-	fragTexCoord = vec2((gl_VertexIndex << 1) & 2, gl_VertexIndex & 2);
+    fragTexCoord = inTexCoord;
 }

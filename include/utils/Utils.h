@@ -94,7 +94,8 @@ namespace utils {
         uint32_t bindingCount,
         VkVertexInputBindingDescription* pVertexBindingDescriptions,
         uint32_t attributesCount, 
-        VkVertexInputAttributeDescription* pVertexAttributesDescriptions);
+        VkVertexInputAttributeDescription* pVertexAttributesDescriptions,
+        VkPipelineVertexInputStateCreateFlags flags = 0);
 
     VkPipelineShaderStageCreateInfo initPipelineShaderStageCreateInfo(
         VkShaderStageFlagBits stage,
