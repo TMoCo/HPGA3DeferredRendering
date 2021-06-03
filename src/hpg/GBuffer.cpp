@@ -41,11 +41,11 @@ void GBuffer::createAttachment(const std::string& name, VkFormat format, VkImage
 
 	// create the image 
 	VulkanImage::CreateInfo info{};
-	info.width		  = extent.width;
-	info.height		  = extent.height;
-	info.format		  = attachment->format;
-	info.tiling		  = VK_IMAGE_TILING_OPTIMAL;
-	info.usage		  = usage | VK_IMAGE_USAGE_SAMPLED_BIT;
+	info.width        = extent.width;
+	info.height       = extent.height;
+	info.format       = attachment->format;
+	info.tiling       = VK_IMAGE_TILING_OPTIMAL;
+	info.usage        = usage | VK_IMAGE_USAGE_SAMPLED_BIT;
 	info.pVulkanImage = &attachment->image;
 
 	VulkanImage::createImage(vkSetup, cmdPool, info);
@@ -72,21 +72,21 @@ void GBuffer::createDeferredRenderPass() {
 	uint32_t attachmentNum = 0;
 	auto attachment = attachments.begin();
 	for (auto& attachmentDescription : attachmentDescriptions) {
-		attachmentDescription.samples		 = VK_SAMPLE_COUNT_1_BIT;
-		attachmentDescription.loadOp		 = VK_ATTACHMENT_LOAD_OP_CLEAR;
-		attachmentDescription.storeOp		 = VK_ATTACHMENT_STORE_OP_STORE;
+		attachmentDescription.samples        = VK_SAMPLE_COUNT_1_BIT;
+		attachmentDescription.loadOp         = VK_ATTACHMENT_LOAD_OP_CLEAR;
+		attachmentDescription.storeOp        = VK_ATTACHMENT_STORE_OP_STORE;
 		attachmentDescription.stencilLoadOp  = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
 		attachmentDescription.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-		attachmentDescription.format		 = attachment->second.format;
+		attachmentDescription.format         = attachment->second.format;
 		
 		if (attachment->first == "depth") {
 			attachmentDescription.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-			attachmentDescription.finalLayout	= VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+			attachmentDescription.finalLayout  = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 			depthReference = { attachmentNum, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL };
 		}
 		else {
 			attachmentDescription.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-			attachmentDescription.finalLayout	= VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+			attachmentDescription.finalLayout   = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 			colourReferences.push_back({ attachmentNum, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL });
 		}
 		attachmentNum++;
@@ -94,35 +94,35 @@ void GBuffer::createDeferredRenderPass() {
 	}
 
 	VkSubpassDescription subpass{}; // create subpass
-	subpass.pipelineBindPoint		= VK_PIPELINE_BIND_POINT_GRAPHICS;
-	subpass.pColorAttachments		= colourReferences.data();
-	subpass.colorAttachmentCount	= static_cast<uint32_t>(colourReferences.size());
+	subpass.pipelineBindPoint       = VK_PIPELINE_BIND_POINT_GRAPHICS;
+	subpass.pColorAttachments       = colourReferences.data();
+	subpass.colorAttachmentCount    = static_cast<uint32_t>(colourReferences.size());
 	subpass.pDepthStencilAttachment = &depthReference;
 	
 	std::array<VkSubpassDependency, 2> dependencies{}; // dependencies for attachment layout transition
 
-	dependencies[0].srcSubpass		= VK_SUBPASS_EXTERNAL;
-	dependencies[0].dstSubpass		= 0;
-	dependencies[0].srcStageMask	= VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
-	dependencies[0].dstStageMask	= VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-	dependencies[0].srcAccessMask	= VK_ACCESS_MEMORY_READ_BIT;
-	dependencies[0].dstAccessMask	= VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+	dependencies[0].srcSubpass      = VK_SUBPASS_EXTERNAL;
+	dependencies[0].dstSubpass      = 0;
+	dependencies[0].srcStageMask    = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+	dependencies[0].dstStageMask    = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+	dependencies[0].srcAccessMask   = VK_ACCESS_MEMORY_READ_BIT;
+	dependencies[0].dstAccessMask   = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
 	dependencies[0].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
 
-	dependencies[1].srcSubpass		= 0;
-	dependencies[1].dstSubpass		= VK_SUBPASS_EXTERNAL;
-	dependencies[1].srcStageMask	= VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-	dependencies[1].dstStageMask	= VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
-	dependencies[1].srcAccessMask	= VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-	dependencies[1].dstAccessMask	= VK_ACCESS_MEMORY_READ_BIT;
+	dependencies[1].srcSubpass      = 0;
+	dependencies[1].dstSubpass      = VK_SUBPASS_EXTERNAL;
+	dependencies[1].srcStageMask    = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+	dependencies[1].dstStageMask    = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+	dependencies[1].srcAccessMask   = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+	dependencies[1].dstAccessMask   = VK_ACCESS_MEMORY_READ_BIT;
 	dependencies[1].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
 
 	VkRenderPassCreateInfo renderPassInfo = {};
-	renderPassInfo.sType		   = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-	renderPassInfo.pAttachments	   = attachmentDescriptions.data();
+	renderPassInfo.sType           = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+	renderPassInfo.pAttachments    = attachmentDescriptions.data();
 	renderPassInfo.attachmentCount = static_cast<uint32_t>(attachmentDescriptions.size());
 	renderPassInfo.subpassCount    = 1;
-	renderPassInfo.pSubpasses	   = &subpass;
+	renderPassInfo.pSubpasses      = &subpass;
 	renderPassInfo.dependencyCount = 2;
 	renderPassInfo.pDependencies   = dependencies.data();
 
@@ -141,14 +141,14 @@ void GBuffer::createDeferredFrameBuffer() {
 	}
 
 	VkFramebufferCreateInfo fbufCreateInfo = {};
-	fbufCreateInfo.sType		   = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-	fbufCreateInfo.pNext		   = NULL;
-	fbufCreateInfo.renderPass	   = deferredRenderPass;
-	fbufCreateInfo.pAttachments	   = attachmentViews.data();
+	fbufCreateInfo.sType           = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+	fbufCreateInfo.pNext           = NULL;
+	fbufCreateInfo.renderPass      = deferredRenderPass;
+	fbufCreateInfo.pAttachments    = attachmentViews.data();
 	fbufCreateInfo.attachmentCount = static_cast<uint32_t>(attachmentViews.size());
-	fbufCreateInfo.width		   = extent.width;
-	fbufCreateInfo.height		   = extent.height;
-	fbufCreateInfo.layers		   = 1;
+	fbufCreateInfo.width           = extent.width;
+	fbufCreateInfo.height          = extent.height;
+	fbufCreateInfo.layers          = 1;
 
 	if (vkCreateFramebuffer(vkSetup->device, &fbufCreateInfo, nullptr, &deferredFrameBuffer) != VK_SUCCESS) {
 		throw std::runtime_error("Could not create GBuffer's frame buffer");
@@ -158,17 +158,17 @@ void GBuffer::createDeferredFrameBuffer() {
 void GBuffer::createColourSampler() {
 	// Create sampler to sample from the color attachments
 	VkSamplerCreateInfo sampler{};
-	sampler.sType		  = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
-	sampler.magFilter	  = VK_FILTER_NEAREST;
-	sampler.minFilter	  = VK_FILTER_NEAREST;
-	sampler.mipmapMode	  = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+	sampler.sType         = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+	sampler.magFilter     = VK_FILTER_NEAREST;
+	sampler.minFilter     = VK_FILTER_NEAREST;
+	sampler.mipmapMode    = VK_SAMPLER_MIPMAP_MODE_LINEAR;
 	sampler.addressModeU  = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
 	sampler.addressModeV  = sampler.addressModeU;
 	sampler.addressModeW  = sampler.addressModeU;
-	sampler.mipLodBias	  = 0.0f;
+	sampler.mipLodBias    = 0.0f;
 	sampler.maxAnisotropy = 1.0f;
-	sampler.minLod		  = 0.0f;
-	sampler.maxLod		  = 1.0f;
+	sampler.minLod        = 0.0f;
+	sampler.maxLod        = 1.0f;
 	sampler.borderColor   = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
 
 	if (vkCreateSampler(vkSetup->device, &sampler, nullptr, &colourSampler)) {

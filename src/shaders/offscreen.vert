@@ -28,7 +28,9 @@ void main() {
 	vec4 pos = ubo.proj * ubo.view * ubo.model * vec4(inPosition, 1.0f);
 	gl_Position = pos;
 
+
 	fragPos = (ubo.model * vec4(inPosition, 1.0f)).xyz;
     fragNormal = inNormal;
-    fragTexCoord = inTexCoord;
+    // fragTexCoord = inTexCoord;
+	fragTexCoord = vec2((gl_VertexIndex << 1) & 2, gl_VertexIndex & 2);
 }

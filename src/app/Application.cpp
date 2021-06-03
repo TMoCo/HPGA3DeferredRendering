@@ -155,8 +155,6 @@ void Application::initImGui() {
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO(); (void)io;
-    //io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
-    //io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
 
     // Setup Dear ImGui style
     ImGui::StyleColorsDark();
@@ -202,82 +200,44 @@ void Application::initWindow() {
 // Descriptors
 
 void Application::createDescriptorSetLayout() {
-    // A uniform block
-    VkDescriptorSetLayoutBinding uboLayoutBinding{};
-    uboLayoutBinding.descriptorType     = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    uboLayoutBinding.binding            = 0;
-    uboLayoutBinding.descriptorCount    = 1;
-    uboLayoutBinding.stageFlags         = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT; //
-    uboLayoutBinding.pImmutableSamplers = nullptr;
 
-    // same as above but for a texture sampler rather than for uniforms
-    VkDescriptorSetLayoutBinding samplersLayoutBinding{};
-    samplersLayoutBinding.descriptorType     = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    samplersLayoutBinding.binding            = 1;
-    samplersLayoutBinding.descriptorCount    = static_cast<uint32_t>(textures.size()); // nb of textures
-    samplersLayoutBinding.stageFlags         = VK_SHADER_STAGE_FRAGMENT_BIT;
-    samplersLayoutBinding.pImmutableSamplers = nullptr;
-
-    std::array<VkDescriptorSetLayoutBinding, 2> bindings = { uboLayoutBinding, samplersLayoutBinding }; // { terrainUboLayoutBinding, terrainHeightSamplerLayoutBinding, terrainTextureSamplerLayoutBinding };
+    std::vector<VkDescriptorSetLayoutBinding> setLayoutBindings = {
+        // binding 0: vertex shader uniform buffer 
+        utils::initDescriptorSetLayoutBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT),
+        // binding 1: model albedo texture / position texture
+        utils::initDescriptorSetLayoutBinding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT),
+        // binding 2: model metallic roughness / normal texture
+        utils::initDescriptorSetLayoutBinding(2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT),
+        // binding 3: albedo texture
+        utils::initDescriptorSetLayoutBinding(3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT),
+        // binding 4: fragment shader uniform buffer
+        utils::initDescriptorSetLayoutBinding(4, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT)
+    };
 
     VkDescriptorSetLayoutCreateInfo layoutCreateInf{};
     layoutCreateInf.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-    layoutCreateInf.bindingCount = static_cast<uint32_t>(bindings.size()); // number of bindings
-    layoutCreateInf.pBindings    = bindings.data(); // pointer to the bindings
+    layoutCreateInf.bindingCount = static_cast<uint32_t>(setLayoutBindings.size());
+    layoutCreateInf.pBindings    = setLayoutBindings.data();
 
     if (vkCreateDescriptorSetLayout(vkSetup.device, &layoutCreateInf, nullptr, &descriptorSetLayout) != VK_SUCCESS) {
         throw std::runtime_error("failed to create descriptor set layout!");
     }
-
-    // Airplane descriptor layout
-    /*
-    VkDescriptorSetLayoutBinding airplaneUboLayoutBinding{};
-    airplaneUboLayoutBinding.descriptorType     = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    airplaneUboLayoutBinding.binding            = 0; // the first descriptor
-    airplaneUboLayoutBinding.descriptorCount    = 1; // single uniform buffer object so just 1, could be used to specify a transform for each bone in a skeletal animation
-    airplaneUboLayoutBinding.stageFlags         = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT; // in which shader stage is the descriptor going to be referenced
-    airplaneUboLayoutBinding.pImmutableSamplers = nullptr; // relevant to image sampling related descriptors
-
-
-    // same as above but for a texture sampler rather than for uniforms
-    VkDescriptorSetLayoutBinding airplaneSamplerLayoutBinding{};
-    airplaneSamplerLayoutBinding.descriptorType     = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER; // this is a sampler descriptor
-    airplaneSamplerLayoutBinding.binding            = 1; // the second descriptor
-    airplaneSamplerLayoutBinding.descriptorCount    = 1;
-    airplaneSamplerLayoutBinding.stageFlags         = VK_SHADER_STAGE_FRAGMENT_BIT; ;// the shader stage we wan the descriptor to be used in, ie the fragment shader stage
-    // can use the texture sampler in the vertex stage as part of a height map to deform the vertices in a grid
-    airplaneSamplerLayoutBinding.pImmutableSamplers = nullptr;
-
-    // put the descriptors in an array
-    std::array<VkDescriptorSetLayoutBinding, 0> airplaneBindings = {};// { airplaneUboLayoutBinding, airplaneSamplerLayoutBinding };
-    
-    // descriptor set bindings combined into a descriptor set layour object, created the same way as other vk objects by filling a struct in
-    VkDescriptorSetLayoutCreateInfo airplaneLayoutInfo{};
-    airplaneLayoutInfo.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-    airplaneLayoutInfo.bindingCount = static_cast<uint32_t>(airplaneBindings.size());; // number of bindings
-    airplaneLayoutInfo.pBindings    = airplaneBindings.data(); // pointer to the bindings
-
-    if (vkCreateDescriptorSetLayout(vkSetup.device, &airplaneLayoutInfo, nullptr, &descriptorSetLayouts[1]) != VK_SUCCESS) {
-        throw std::runtime_error("failed to create descriptor set layout!");
-    }
-    */
 }
 
 void Application::createDescriptorPool() {
     uint32_t swapChainImageCount = static_cast<uint32_t>(swapChain.images.size());
-    VkDescriptorPoolSize poolSizes[] =
-    {
-        { VK_DESCRIPTOR_TYPE_SAMPLER, IMGUI_POOL_NUM },
-        { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, IMGUI_POOL_NUM + swapChainImageCount },
-        { VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, IMGUI_POOL_NUM },
-        { VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, IMGUI_POOL_NUM },
-        { VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER, IMGUI_POOL_NUM },
-        { VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER, IMGUI_POOL_NUM },
-        { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, IMGUI_POOL_NUM + swapChainImageCount },
-        { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, IMGUI_POOL_NUM },
+    VkDescriptorPoolSize poolSizes[] = {
+        { VK_DESCRIPTOR_TYPE_SAMPLER,                IMGUI_POOL_NUM },
+        { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, IMGUI_POOL_NUM },
+        { VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,          IMGUI_POOL_NUM },
+        { VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,          IMGUI_POOL_NUM },
+        { VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER,   IMGUI_POOL_NUM },
+        { VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER,   IMGUI_POOL_NUM },
+        { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,         IMGUI_POOL_NUM },
+        { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,         IMGUI_POOL_NUM },
         { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, IMGUI_POOL_NUM },
         { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC, IMGUI_POOL_NUM },
-        { VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, IMGUI_POOL_NUM }
+        { VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT,       IMGUI_POOL_NUM }
     };
 
     VkDescriptorPoolCreateInfo poolInfo{};
@@ -293,58 +253,67 @@ void Application::createDescriptorPool() {
 }
 
 void Application::createDescriptorSets() {
+    std::vector<VkWriteDescriptorSet> writeDescriptorSets;
+
+    // allocation for the gbuffer's descriptors
     std::vector<VkDescriptorSetLayout> layouts(swapChain.images.size(), descriptorSetLayout);
+    VkDescriptorSetAllocateInfo allocInfo = utils::initDescriptorSetAllocInfo(descriptorPool, static_cast<uint32_t>(layouts.size()), layouts.data());
 
-    VkDescriptorSetAllocateInfo allocInfo{};
-    allocInfo.sType              = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-    allocInfo.descriptorPool     = descriptorPool;
-    allocInfo.descriptorSetCount = static_cast<uint32_t>(swapChain.images.size());
-    allocInfo.pSetLayouts        = layouts.data();
-
-    descriptorSets.resize(swapChain.images.size());
+    descriptorSets.resize(layouts.size());
 
     if (vkAllocateDescriptorSets(vkSetup.device, &allocInfo, descriptorSets.data()) != VK_SUCCESS) {
         throw std::runtime_error("failed to allocate descriptor sets!");
     }
 
-    // configure sets
-    for (size_t i = 0; i < swapChain.images.size(); i++) {
-        VkDescriptorBufferInfo uboBufferInf{};
-        uboBufferInf.buffer = uniforms.buffer;
-        uboBufferInf.offset = sizeof(GBuffer::UBO) * i;
-        uboBufferInf.range  = sizeof(GBuffer::UBO);
+    // image descriptors for the offscreen color attachments
+    VkDescriptorImageInfo texDescriptorPosition{};
+    texDescriptorPosition.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    texDescriptorPosition.imageView   = gBuffer.attachments["position"].imageView;
+    texDescriptorPosition.sampler     = gBuffer.colourSampler;
 
-        std::vector<VkDescriptorImageInfo> texturesImageInfo(textures.size());
+    VkDescriptorImageInfo texDescriptorNormal{};
+    texDescriptorNormal.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    texDescriptorNormal.imageView   = gBuffer.attachments["normal"].imageView;
+    texDescriptorNormal.sampler     = gBuffer.colourSampler;
 
-        for (uint32_t i = 0; i < textures.size(); ++i)
-        {
-            texturesImageInfo[i].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-            texturesImageInfo[i].imageView = textures[i].textureImageView;
-            texturesImageInfo[i].sampler = textures[i].textureSampler;
-        }
+    VkDescriptorImageInfo texDescriptorAlbedo{};
+    texDescriptorAlbedo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    texDescriptorAlbedo.imageView   = gBuffer.attachments["albedo"].imageView;
+    texDescriptorAlbedo.sampler     = gBuffer.colourSampler;
 
-        std::array<VkWriteDescriptorSet, 2> descriptorWrites{}; // add more descriptors here...
+    // textures in forward rendering
+    std::vector<VkDescriptorImageInfo> texDescriptors(textures.size());
+    for (size_t i = 0; i < textures.size(); i++) {
+        texDescriptors[i].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        texDescriptors[i].imageView   = textures[i].textureImageView;
+        texDescriptors[i].sampler     = textures[i].textureSampler;
+    }
 
-        // uniform buffer
-        descriptorWrites[0].sType            = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        descriptorWrites[0].dstSet           = descriptorSets[i]; // wich set to update
-        descriptorWrites[0].dstBinding       = 0; // uniform buffer has binding 0
-        descriptorWrites[0].dstArrayElement  = 0; // descriptors can be arrays, only one element so first index
-        descriptorWrites[0].descriptorType   = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-        descriptorWrites[0].descriptorCount  = 1; // can update multiple descriptors at once starting at dstArrayElement, descriptorCount specifies how many elements
-        descriptorWrites[0].pBufferInfo      = &uboBufferInf;
+    for (size_t i = 0; i < descriptorSets.size(); i++) {
+        // offscreen uniform buffer
+        VkDescriptorBufferInfo gbufferUboInf{};
+        gbufferUboInf.buffer = gBuffer.uniformBuffer.buffer;
+        gbufferUboInf.offset = sizeof(GBuffer::UBO) * i;
+        gbufferUboInf.range  = sizeof(GBuffer::UBO);
 
-        // textures
-        descriptorWrites[1].sType            = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        descriptorWrites[1].dstSet           = descriptorSets[i]; // wich set to update
-        descriptorWrites[1].dstBinding       = 1; // uniform buffer has binding 0
-        descriptorWrites[1].dstArrayElement  = 0; // descriptors can be arrays, only one element so first index
-        descriptorWrites[1].descriptorType   = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-        descriptorWrites[1].descriptorCount  = static_cast<uint32_t>(texturesImageInfo.size()); // can update multiple descriptors at once starting at dstArrayElement, descriptorCount specifies how many elements
-        descriptorWrites[1].pImageInfo       = texturesImageInfo.data();
+        // forward rendering uniform buffer
+        VkDescriptorBufferInfo uboInf{};
+        uboInf.buffer = uniforms.buffer;
+        uboInf.offset = sizeof(GBuffer::UBO) * i;
+        uboInf.range  = sizeof(GBuffer::UBO);
+
+        // offscrene descriptor writes
+        writeDescriptorSets = {
+            // binding 0: vertex shader uniform buffer 
+            utils::initWriteDescriptorSet(descriptorSets[i], 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, &uboInf),
+            // binding 1: model albedo texture 
+            utils::initWriteDescriptorSet(descriptorSets[i], 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &texDescriptors[0]),
+            // binding 2: model metallic roughness texture
+            utils::initWriteDescriptorSet(descriptorSets[i], 2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &texDescriptors[1])
+        };
 
         // update according to the configuration
-        vkUpdateDescriptorSets(vkSetup.device, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
+        vkUpdateDescriptorSets(vkSetup.device, static_cast<uint32_t>(writeDescriptorSets.size()), writeDescriptorSets.data(), 0, nullptr);
     }
 }
 

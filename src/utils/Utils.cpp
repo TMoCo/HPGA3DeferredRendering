@@ -210,4 +210,85 @@ namespace utils {
         return info;
     }
 
+    VkDescriptorSetLayoutBinding initDescriptorSetLayoutBinding(
+        uint32_t binding,
+        VkDescriptorType type,
+        VkPipelineStageFlags flags) {
+        VkDescriptorSetLayoutBinding descSetLayoutBinding{};
+        descSetLayoutBinding.descriptorType  = type;
+        descSetLayoutBinding.descriptorCount = 1; // change manually later if needed
+        descSetLayoutBinding.binding         = binding;
+        descSetLayoutBinding.stageFlags      = flags;
+        return descSetLayoutBinding;
+    }
+
+    VkDescriptorSetAllocateInfo initDescriptorSetAllocInfo(
+        VkDescriptorPool pool,
+        uint32_t count,
+        VkDescriptorSetLayout* pDescSetLayouts) {
+        VkDescriptorSetAllocateInfo descSetAllocInfo{};
+        descSetAllocInfo.sType              = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+        descSetAllocInfo.descriptorPool     = pool;
+        descSetAllocInfo.descriptorSetCount = count;
+        descSetAllocInfo.pSetLayouts        = pDescSetLayouts;
+        return descSetAllocInfo;
+    }
+
+    VkWriteDescriptorSet initWriteDescriptorSet(
+        VkDescriptorSet dst,
+        uint32_t binding,
+        VkDescriptorType type,
+        VkDescriptorBufferInfo* pBufferInfo) {
+        VkWriteDescriptorSet writeDescriptorSet{};
+        writeDescriptorSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        writeDescriptorSet.descriptorType = type;
+        writeDescriptorSet.dstSet = dst;
+        writeDescriptorSet.dstBinding = binding;
+        writeDescriptorSet.descriptorCount = 1;
+        writeDescriptorSet.pBufferInfo = pBufferInfo;
+        return writeDescriptorSet;
+    }
+
+    VkWriteDescriptorSet initWriteDescriptorSet(
+        VkDescriptorSet dst,
+        uint32_t binding,
+        VkDescriptorType type,
+        VkDescriptorImageInfo* pImageInfo) {
+        VkWriteDescriptorSet writeDescriptorSet{};
+        writeDescriptorSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        writeDescriptorSet.descriptorType = type;
+        writeDescriptorSet.dstSet = dst;
+        writeDescriptorSet.dstBinding = binding;
+        writeDescriptorSet.descriptorCount = 1;
+        writeDescriptorSet.pImageInfo = pImageInfo;
+        return writeDescriptorSet;
+    }
+
+    VkPipelineVertexInputStateCreateInfo initPipelineVertexInputStateCreateInfo(
+        uint32_t bindingCount,
+        VkVertexInputBindingDescription* pVertexBindingDescriptions,
+        uint32_t attributesCount,
+        VkVertexInputAttributeDescription* pVertexAttributesDescriptions,
+        VkPipelineVertexInputStateCreateFlags flags) {
+        VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
+        vertexInputInfo.sType                           = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+        vertexInputInfo.flags                           = flags;
+        vertexInputInfo.vertexBindingDescriptionCount   = bindingCount;
+        vertexInputInfo.pVertexBindingDescriptions      = pVertexBindingDescriptions;
+        vertexInputInfo.vertexAttributeDescriptionCount = attributesCount;
+        vertexInputInfo.pVertexAttributeDescriptions    = pVertexAttributesDescriptions;
+        return vertexInputInfo;
+    }
+
+    VkPipelineShaderStageCreateInfo initPipelineShaderStageCreateInfo(
+        VkShaderStageFlagBits stage,
+        VkShaderModule& shader,
+        const char* name) {
+        VkPipelineShaderStageCreateInfo shaderStageInfo{};
+        shaderStageInfo.sType  = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+        shaderStageInfo.stage  = stage;
+        shaderStageInfo.module = shader;
+        shaderStageInfo.pName  = name;
+        return shaderStageInfo;
+    }
 }

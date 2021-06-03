@@ -88,17 +88,28 @@ namespace utils {
     //-Texture operation info structs-------------------------------------//
     bool hasStencilComponent(VkFormat format);
 
-    //-Pipeline state creation struct initialisation----------------------//
+    //-Vulkan struct initialisation---------------------------------------//
     // taken from: https://github.com/SaschaWillems/Vulkan/blob/master/base/VulkanInitializers.hpp
+    VkPipelineVertexInputStateCreateInfo initPipelineVertexInputStateCreateInfo(
+        uint32_t bindingCount,
+        VkVertexInputBindingDescription* pVertexBindingDescriptions,
+        uint32_t attributesCount, 
+        VkVertexInputAttributeDescription* pVertexAttributesDescriptions);
+
+    VkPipelineShaderStageCreateInfo initPipelineShaderStageCreateInfo(
+        VkShaderStageFlagBits stage,
+        VkShaderModule& shader,
+        const char* name);
+
     VkPipelineInputAssemblyStateCreateInfo initPipelineInputAssemblyStateCreateInfo(
         VkPrimitiveTopology topology,
         VkBool32 restartEnabled,
         VkPipelineInputAssemblyStateCreateFlags flags = 0);
 
     VkPipelineRasterizationStateCreateInfo initPipelineRasterStateCreateInfo(
-        VkPolygonMode polyMode, 
-        VkCullModeFlags cullMode, 
-        VkFrontFace frontFace, 
+        VkPolygonMode polyMode,
+        VkCullModeFlags cullMode,
+        VkFrontFace frontFace,
         VkPipelineRasterizationStateCreateFlags flags = 0,
         float lineWidth = 1.0f);
 
@@ -126,6 +137,29 @@ namespace utils {
         uint32_t layoutCount,
         VkDescriptorSetLayout* layouts,
         VkPipelineLayoutCreateFlags flags = 0);
+
+    VkDescriptorSetLayoutBinding initDescriptorSetLayoutBinding(
+        uint32_t binding,
+        VkDescriptorType type,
+        VkPipelineStageFlags flags = 0);
+
+    VkDescriptorSetAllocateInfo initDescriptorSetAllocInfo(
+        VkDescriptorPool pool,
+        uint32_t count,
+        VkDescriptorSetLayout* pDescSetLayouts);
+
+    VkWriteDescriptorSet initWriteDescriptorSet(
+        VkDescriptorSet dst,
+        uint32_t binding,
+        VkDescriptorType type,
+        VkDescriptorBufferInfo* pBufferInfo);
+
+    VkWriteDescriptorSet initWriteDescriptorSet(
+        VkDescriptorSet dst,
+        uint32_t binding,
+        VkDescriptorType type,
+        VkDescriptorImageInfo* pImageInfo);
+    
 }
 
 #endif // !UTILS_H

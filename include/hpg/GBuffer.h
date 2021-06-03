@@ -33,7 +33,7 @@ public:
 	//-Framebuffer attachment---------------------------------------------//
 	struct Attachment {
 		VulkanImage image{};
-		VkFormat	format	  = VK_FORMAT_UNDEFINED;
+		VkFormat    format    = VK_FORMAT_UNDEFINED;
 		VkImageView imageView = nullptr;
 	};
 
@@ -58,7 +58,7 @@ public:
 	void createUniformBuffer();
 	void updateUniformBuffer(const UBO& ubo);
 
-private:
+public:
 	//-Members------------------------------------------------------------//
 	VulkanSetup* vkSetup;
 

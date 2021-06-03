@@ -9,7 +9,8 @@
 // Textures
 //
 
-layout(binding = 1) uniform sampler2D textureSamplers[2];
+layout(binding = 1) uniform sampler2D albedoSampler;
+layout(binding = 2) uniform sampler2D metallicRoughnessSampler;
 
 //
 // Input from previous stage
@@ -49,5 +50,5 @@ void main() {
     */
 
     // vector multiplication is element wise <3
-    outColor = vec4( texture(textureSamplers[0], fragTexCoord).rgb, 1.0f);
+    outColor = vec4( texture(albedoSampler, fragTexCoord).rgb, 1.0f);
 }
