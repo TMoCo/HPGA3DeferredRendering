@@ -70,13 +70,14 @@ public:
 
     //-Buffer copying-----------------------------------------------------//
     static void copyBuffer(const VulkanSetup* vkSetup, const VkCommandPool& commandPool, CopyInfo* bufferCopyInfo);
-    static void copyBufferToImage(const VulkanSetup* vkSetup, const VkCommandPool& renderCommandPool, VkBuffer buffer, VkImage image, uint32_t width, uint32_t height);
+    static void copyBufferToImage(const VulkanSetup* vkSetup, const VkCommandPool& renderCommandPool, 
+        VkBuffer buffer, VkImage image, const std::vector<VkBufferImageCopy>& regions);
 
     //-Buffer creation on GPU---------------------------------------------//
     static void createDeviceLocalBuffer(const VulkanSetup* vkSetup, const VkCommandPool& commandPool, const Buffer& buffer, VulkanBuffer* vkBuffer, VkBufferUsageFlagBits usage);
 
     //-Utility uniform buffer creation------------------------------------//
-    template<class T> // template for different UBOs
+    template<typename T>
     static void createUniformBuffer(const VulkanSetup* vkSetup, size_t imagesSize, VulkanBuffer* buffer, VkMemoryPropertyFlags properties);
 
 public:
@@ -90,7 +91,7 @@ public:
 //
 
 // utility for creating a buffer for a ubo T
-template <class T>
+template <typename T>
 void VulkanBuffer::createUniformBuffer(const VulkanSetup* vkSetup, size_t imagesSize, VulkanBuffer* buffer, VkMemoryPropertyFlags properties) {
     VulkanBuffer::CreateInfo createInfo {};
     createInfo.size          = static_cast<VkDeviceSize>(imagesSize * sizeof(T));

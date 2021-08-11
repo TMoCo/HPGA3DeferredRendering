@@ -8,8 +8,9 @@
 #include <app/Application.h>
 #include <app/AppConstants.h>
 
-// include constants
+// include constants and utility
 #include <utils/Utils.h>
+#include <utils/Print.h>
 #include <utils/Assert.h>
 
 // transformations
@@ -32,80 +33,73 @@
 #include <imgui_impl_vulkan.h>
 
 void Application::run() {
-    // initialise a glfw window
     initWindow();
-
-    // initialise vulkan
     initVulkan();
-
-    // initialise imgui
     initImGui();
-
-    // run the main loop
     mainLoop();
-
-    // clean up before exiting
     cleanup();
 }
 
-// Init 
-
 void Application::initVulkan() {
-    // create the vulkan core
     vkSetup.initSetup(window);
 
     // scene data
-    camera = Camera(glm::vec3(0.0f, 0.0f, 3.0f), 50.0f, 50.0f);
-
-    // load the model
+    camera = Camera({ 0.0f, 0.0f, 0.0f }, 2.0f, 10.0f);
     model.loadModel(MODEL_PATH);
 
-    // get texture data from model 
-    const std::vector<Image>* textureImages = model.getMaterialTextureData(0);
-    textures.resize(textureImages->size());
+    lights[0] = { {10.0f, 0.0f, 0.0f, 0.0f}, {200.0f, 200.0f, 200.0f}, 20.0f }; // pos, colour, radius
+    lights[1] = { {-10.0f, 0.0f, 0.0f, 0.0f}, {0.5f, 0.5f, 0.5f}, 20.0f };
+    lights[2] = { {0.0f, 0.0f, 10.0f, 0.0f}, {0.5f, 0.5f, 0.5f}, 20.0f };
+    lights[3] = { {0.0f, 0.0f, -10.0f, 0.0f}, {0.5f, 0.5f, 0.5f}, 20.0f };
 
-    // create descriptor layout and command pools (immutable over app lifetime)
-    createDescriptorSetLayout();
     createCommandPool(&renderCommandPool, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
     createCommandPool(&imGuiCommandPool, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
 
-    // swap chain and frame buffers
+    createDescriptorSetLayout();
+
     swapChain.initSwapChain(&vkSetup, &model, &descriptorSetLayout);
-    framebufferData.initFramebufferData(&vkSetup, &swapChain, renderCommandPool);
-    gBuffer.createGBuffer(&vkSetup, &swapChain, renderCommandPool);
+    frameBuffer.initFrameBuffer(&vkSetup, &swapChain, renderCommandPool);
+    gBuffer.createGBuffer(&vkSetup, &swapChain, &descriptorSetLayout, &model, renderCommandPool);
     
     // textures
-    auto texture = textures.begin(); // iterator to first texture element
+    const std::vector<Image>* textureImages = model.getMaterialTextureData(0);
+    textures.resize(textureImages->size());
+
     for (size_t i = 0; i < textureImages->size(); i++) {
-        texture->createTexture(&vkSetup, renderCommandPool, textureImages->data()[i] );
-        texture++; // increment iter
+        textures[i].createTexture(&vkSetup, renderCommandPool, textureImages->data()[i] );
     }
+
+    skybox.createSkybox(&vkSetup, renderCommandPool);
 
     // vertex buffer 
     const std::vector<Model::Vertex>* vBuffer = model.getVertexBuffer(0);
-    VulkanBuffer::createDeviceLocalBuffer(&vkSetup, renderCommandPool, Buffer{ (unsigned char*)vBuffer->data(), vBuffer->size() * sizeof(Model::Vertex) }, &vertexBuffer, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
+    VulkanBuffer::createDeviceLocalBuffer(&vkSetup, renderCommandPool, 
+        Buffer{ (unsigned char*)vBuffer->data(), vBuffer->size() * sizeof(Model::Vertex) }, // vertex data as buffer
+        &vertexBuffer, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
 
     // index buffer
     const std::vector<uint32_t>* iBuffer = model.getIndexBuffer(0);
-    VulkanBuffer::createDeviceLocalBuffer(&vkSetup, renderCommandPool, Buffer{ (unsigned char*)iBuffer->data(), iBuffer->size() * sizeof(uint32_t) }, &indexBuffer, VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
+    VulkanBuffer::createDeviceLocalBuffer(&vkSetup, renderCommandPool, 
+        Buffer{ (unsigned char*)iBuffer->data(), iBuffer->size() * sizeof(uint32_t) }, // index data as buffer
+        &indexBuffer, VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
 
-    // uniform buffer  
-    VulkanBuffer::createUniformBuffer<GBuffer::UBO>(&vkSetup, swapChain.images.size(), &uniforms, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-
-    // descriptor sets
     createDescriptorPool();
     createDescriptorSets();
 
-    // command buffers
-    createCommandBuffers(&renderCommandBuffers, renderCommandPool);
-    createCommandBuffers(&imGuiCommandBuffers, imGuiCommandPool);
+    renderCommandBuffers.resize(swapChain.images.size());
+    imGuiCommandBuffers.resize(swapChain.images.size());
+    offScreenCommandBuffers.resize(swapChain.images.size());
 
-    // setup synchronisation
+    createCommandBuffers(static_cast<uint32_t>(renderCommandBuffers.size()), renderCommandBuffers.data(), renderCommandPool);
+    createCommandBuffers(static_cast<uint32_t>(imGuiCommandBuffers.size()), imGuiCommandBuffers.data(), imGuiCommandPool);
+    createCommandBuffers(static_cast<uint32_t>(offScreenCommandBuffers.size()), offScreenCommandBuffers.data(), renderCommandPool);
+
     createSyncObjects();
 
-    // record the command buffer in every image index (commands do not change from one frame to next)
-    for (size_t i = 0; i < swapChain.images.size(); i++) {
-        recordGeometryCommandBuffer(i);
+    // record commands
+    for (size_t i = 0; i < swapChain.images.size(); i++) { 
+        buildOffscreenCommandBuffer(i); // offscreen gbuffer commands
+        buildCompositionCommandBuffer(i); // final image composition
     }
 }
 
@@ -118,33 +112,32 @@ void Application::recreateVulkanData() {
         glfwWaitEvents();
     }
 
-    // wait before destroying if in use by the device
-    vkDeviceWaitIdle(vkSetup.device);
+    vkDeviceWaitIdle(vkSetup.device); // wait if in use by device
 
-    // destroy whatever is dependent on the old swap chain, starting with the command buffers
+    // destroy old swap chain dependencies
     vkFreeCommandBuffers(vkSetup.device, renderCommandPool, static_cast<uint32_t>(renderCommandBuffers.size()), renderCommandBuffers.data());
     vkFreeCommandBuffers(vkSetup.device, imGuiCommandPool, static_cast<uint32_t>(imGuiCommandBuffers.size()), imGuiCommandBuffers.data());
-
-    uniforms.cleanupBufferData(vkSetup.device);
+    vkFreeCommandBuffers(vkSetup.device, renderCommandPool, static_cast<uint32_t>(offScreenCommandBuffers.size()), offScreenCommandBuffers.data());
 
     gBuffer.cleanupGBuffer();
     framebufferData.cleanupFrambufferData();
     swapChain.cleanupSwapChain();
 
-    // recreate
+    // create new swap chain etc...
     swapChain.initSwapChain(&vkSetup, &model, &descriptorSetLayout);
     framebufferData.initFramebufferData(&vkSetup, &swapChain, renderCommandPool);
-    gBuffer.createGBuffer(&vkSetup, &swapChain, renderCommandPool);
-
-    VulkanBuffer::createUniformBuffer<GBuffer::UBO>(&vkSetup, swapChain.images.size(), &uniforms, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+    gBuffer.createGBuffer(&vkSetup, &swapChain, &descriptorSetLayout, &model, renderCommandPool);
 
     createDescriptorSets();
 
-    createCommandBuffers(&renderCommandBuffers, renderCommandPool);
-    createCommandBuffers(&imGuiCommandBuffers, imGuiCommandPool);
+    createCommandBuffers(static_cast<uint32_t>(renderCommandBuffers.size()), renderCommandBuffers.data(), renderCommandPool);
+    createCommandBuffers(static_cast<uint32_t>(imGuiCommandBuffers.size()), imGuiCommandBuffers.data(), imGuiCommandPool);
+    createCommandBuffers(static_cast<uint32_t>(offScreenCommandBuffers.size()), offScreenCommandBuffers.data(), renderCommandPool);
 
     for (size_t i = 0; i < swapChain.images.size(); i++) {
-        recordGeometryCommandBuffer(i);
+        buildOffscreenCommandBuffer(i);
+        buildCompositionCommandBuffer(i);
+        buildGuiCommandBuffer(i);
     }
 
     // update ImGui aswell
@@ -199,31 +192,6 @@ void Application::initWindow() {
 
 // Descriptors
 
-void Application::createDescriptorSetLayout() {
-
-    std::vector<VkDescriptorSetLayoutBinding> setLayoutBindings = {
-        // binding 0: vertex shader uniform buffer 
-        utils::initDescriptorSetLayoutBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT),
-        // binding 1: model albedo texture / position texture
-        utils::initDescriptorSetLayoutBinding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT),
-        // binding 2: model metallic roughness / normal texture
-        utils::initDescriptorSetLayoutBinding(2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT),
-        // binding 3: albedo texture
-        utils::initDescriptorSetLayoutBinding(3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT),
-        // binding 4: fragment shader uniform buffer
-        utils::initDescriptorSetLayoutBinding(4, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT)
-    };
-
-    VkDescriptorSetLayoutCreateInfo layoutCreateInf{};
-    layoutCreateInf.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-    layoutCreateInf.bindingCount = static_cast<uint32_t>(setLayoutBindings.size());
-    layoutCreateInf.pBindings    = setLayoutBindings.data();
-
-    if (vkCreateDescriptorSetLayout(vkSetup.device, &layoutCreateInf, nullptr, &descriptorSetLayout) != VK_SUCCESS) {
-        throw std::runtime_error("failed to create descriptor set layout!");
-    }
-}
-
 void Application::createDescriptorPool() {
     uint32_t swapChainImageCount = static_cast<uint32_t>(swapChain.images.size());
     VkDescriptorPoolSize poolSizes[] = {
@@ -252,64 +220,134 @@ void Application::createDescriptorPool() {
     }
 }
 
+void Application::createDescriptorSetLayout() {
+
+    std::vector<VkDescriptorSetLayoutBinding> setLayoutBindings = {
+        // binding 0: vertex shader uniform buffer 
+        utils::initDescriptorSetLayoutBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT),
+        // binding 1: model albedo texture / position texture
+        utils::initDescriptorSetLayoutBinding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT),
+        // binding 2: model metallic roughness / normal texture
+        utils::initDescriptorSetLayoutBinding(2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT),
+        // binding 3: albedo texture
+        utils::initDescriptorSetLayoutBinding(3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT),
+        // binding 4: fragment shader uniform buffer 
+        utils::initDescriptorSetLayoutBinding(4, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT)
+    };
+
+    VkDescriptorSetLayoutCreateInfo layoutCreateInf{};
+    layoutCreateInf.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+    layoutCreateInf.bindingCount = static_cast<uint32_t>(setLayoutBindings.size());
+    layoutCreateInf.pBindings = setLayoutBindings.data();
+
+    if (vkCreateDescriptorSetLayout(vkSetup.device, &layoutCreateInf, nullptr, &descriptorSetLayout) != VK_SUCCESS) {
+        throw std::runtime_error("failed to create descriptor set layout!");
+    }
+}
+
 void Application::createDescriptorSets() {
     std::vector<VkWriteDescriptorSet> writeDescriptorSets;
 
-    // allocation for the gbuffer's descriptors
     std::vector<VkDescriptorSetLayout> layouts(swapChain.images.size(), descriptorSetLayout);
-    VkDescriptorSetAllocateInfo allocInfo = utils::initDescriptorSetAllocInfo(descriptorPool, static_cast<uint32_t>(layouts.size()), layouts.data());
+    VkDescriptorSetAllocateInfo allocInfo = utils::initDescriptorSetAllocInfo(descriptorPool, 1, layouts.data());
 
-    descriptorSets.resize(layouts.size());
-
-    if (vkAllocateDescriptorSets(vkSetup.device, &allocInfo, descriptorSets.data()) != VK_SUCCESS) {
+    // offscreen descriptor set
+    if (vkAllocateDescriptorSets(vkSetup.device, &allocInfo, &offScreenDescriptorSet) != VK_SUCCESS) {
         throw std::runtime_error("failed to allocate descriptor sets!");
     }
 
-    // image descriptors for the offscreen color attachments
+    // offscreen uniform
+    VkDescriptorBufferInfo offScreenUboInf{};
+    offScreenUboInf.buffer = gBuffer.offScreenUniform.buffer;
+    offScreenUboInf.offset = 0;
+    offScreenUboInf.range  = sizeof(GBuffer::OffScreenUbo);
+    
+    // offscrene textures in scene
+    std::vector<VkDescriptorImageInfo> offScreenTexDescriptors(textures.size());
+    for (size_t i = 0; i < textures.size(); i++) {
+        offScreenTexDescriptors[i].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        offScreenTexDescriptors[i].imageView   = textures[i].textureImageView;
+        offScreenTexDescriptors[i].sampler     = textures[i].textureSampler;
+    }
+
+    writeDescriptorSets = {
+        // binding 0: vertex shader uniform buffer 
+        utils::initWriteDescriptorSet(offScreenDescriptorSet, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, &offScreenUboInf),
+        // binding 1: model albedo texture 
+        utils::initWriteDescriptorSet(offScreenDescriptorSet, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &offScreenTexDescriptors[0]),
+        // binding 2: model metallic roughness texture
+        utils::initWriteDescriptorSet(offScreenDescriptorSet, 2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &offScreenTexDescriptors[1])
+    };
+
+    vkUpdateDescriptorSets(vkSetup.device, static_cast<uint32_t>(writeDescriptorSets.size()), writeDescriptorSets.data(), 0, nullptr);
+
+    // skybox descriptor set
+    if (vkAllocateDescriptorSets(vkSetup.device, &allocInfo, &skyboxDescriptorSet) != VK_SUCCESS) {
+        throw std::runtime_error("failed to allocate descriptor sets!");
+    }
+
+    // skybox uniform
+    VkDescriptorBufferInfo skyboxUboInf{};
+    skyboxUboInf.buffer = skybox.uniformBuffer.buffer;
+    skyboxUboInf.offset = 0;
+    skyboxUboInf.range = sizeof(Skybox::UBO);
+
+    // skybox texture
+    VkDescriptorImageInfo skyboxTexDescriptor{};
+    skyboxTexDescriptor.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    skyboxTexDescriptor.imageView = skybox.skyboxImageView;
+    skyboxTexDescriptor.sampler = skybox.skyboxSampler;
+
+    writeDescriptorSets = {
+        // binding 0: vertex shader uniform buffer 
+        utils::initWriteDescriptorSet(skyboxDescriptorSet, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, &skyboxUboInf),
+        // binding 1: skybox texture 
+        utils::initWriteDescriptorSet(skyboxDescriptorSet, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &skyboxTexDescriptor)
+    };
+
+    vkUpdateDescriptorSets(vkSetup.device, static_cast<uint32_t>(writeDescriptorSets.size()), writeDescriptorSets.data(), 0, nullptr);
+
+    // composition descriptor sets
+    allocInfo.descriptorSetCount = static_cast<uint32_t>(layouts.size());
+    compositionDescriptorSets.resize(layouts.size());
+
+    if (vkAllocateDescriptorSets(vkSetup.device, &allocInfo, compositionDescriptorSets.data()) != VK_SUCCESS) {
+        throw std::runtime_error("failed to allocate descriptor sets!");
+    }
+
+    // image descriptors for gBuffer color attachments
     VkDescriptorImageInfo texDescriptorPosition{};
     texDescriptorPosition.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-    texDescriptorPosition.imageView   = gBuffer.attachments["position"].imageView;
-    texDescriptorPosition.sampler     = gBuffer.colourSampler;
+    texDescriptorPosition.imageView = gBuffer.attachments["position"].imageView;
+    texDescriptorPosition.sampler = gBuffer.colourSampler;
 
     VkDescriptorImageInfo texDescriptorNormal{};
     texDescriptorNormal.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-    texDescriptorNormal.imageView   = gBuffer.attachments["normal"].imageView;
-    texDescriptorNormal.sampler     = gBuffer.colourSampler;
+    texDescriptorNormal.imageView = gBuffer.attachments["normal"].imageView;
+    texDescriptorNormal.sampler = gBuffer.colourSampler;
 
     VkDescriptorImageInfo texDescriptorAlbedo{};
     texDescriptorAlbedo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-    texDescriptorAlbedo.imageView   = gBuffer.attachments["albedo"].imageView;
-    texDescriptorAlbedo.sampler     = gBuffer.colourSampler;
+    texDescriptorAlbedo.imageView = gBuffer.attachments["albedo"].imageView;
+    texDescriptorAlbedo.sampler = gBuffer.colourSampler;
 
-    // textures in forward rendering
-    std::vector<VkDescriptorImageInfo> texDescriptors(textures.size());
-    for (size_t i = 0; i < textures.size(); i++) {
-        texDescriptors[i].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-        texDescriptors[i].imageView   = textures[i].textureImageView;
-        texDescriptors[i].sampler     = textures[i].textureSampler;
-    }
-
-    for (size_t i = 0; i < descriptorSets.size(); i++) {
-        // offscreen uniform buffer
-        VkDescriptorBufferInfo gbufferUboInf{};
-        gbufferUboInf.buffer = gBuffer.uniformBuffer.buffer;
-        gbufferUboInf.offset = sizeof(GBuffer::UBO) * i;
-        gbufferUboInf.range  = sizeof(GBuffer::UBO);
-
+    for (size_t i = 0; i < compositionDescriptorSets.size(); i++) {
         // forward rendering uniform buffer
-        VkDescriptorBufferInfo uboInf{};
-        uboInf.buffer = uniforms.buffer;
-        uboInf.offset = sizeof(GBuffer::UBO) * i;
-        uboInf.range  = sizeof(GBuffer::UBO);
+        VkDescriptorBufferInfo compositionUboInf{};
+        compositionUboInf.buffer = gBuffer.compositionUniforms.buffer;
+        compositionUboInf.offset = sizeof(GBuffer::CompositionUBO) * i;
+        compositionUboInf.range  = sizeof(GBuffer::CompositionUBO);
 
-        // offscrene descriptor writes
+        // offscreen descriptor writes
         writeDescriptorSets = {
-            // binding 0: vertex shader uniform buffer 
-            utils::initWriteDescriptorSet(descriptorSets[i], 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, &uboInf),
-            // binding 1: model albedo texture 
-            utils::initWriteDescriptorSet(descriptorSets[i], 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &texDescriptors[0]),
-            // binding 2: model metallic roughness texture
-            utils::initWriteDescriptorSet(descriptorSets[i], 2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &texDescriptors[1])
+            // binding 1: position texture target 
+            utils::initWriteDescriptorSet(compositionDescriptorSets[i], 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &texDescriptorPosition),
+            // binding 2: normal texture target
+            utils::initWriteDescriptorSet(compositionDescriptorSets[i], 2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &texDescriptorNormal),
+            // binding 3: albedo texture target
+            utils::initWriteDescriptorSet(compositionDescriptorSets[i], 3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &texDescriptorAlbedo),
+            // binding 4: fragment shader uniform
+            utils::initWriteDescriptorSet(compositionDescriptorSets[i], 4, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, &compositionUboInf),
         };
 
         // update according to the configuration
@@ -317,168 +355,144 @@ void Application::createDescriptorSets() {
     }
 }
 
-// Uniforms
-
-void Application::updateUniformBuffers(uint32_t currentImage) {
-    glm::mat4 view = camera.getViewMatrix();
-
-    glm::mat4 proj = glm::perspective(glm::radians(45.0f), swapChain.extent.width / (float)swapChain.extent.height, 0.1f, 32000.0f);
-    proj[1][1] *= -1; // y coordinates inverted, Vulkan origin top left vs OpenGL bottom left
-    
-    glm::mat4 model = glm::translate(glm::mat4(1.0f), translate);
-    model = glm::scale(model, glm::vec3(scale, scale, scale));
-    model *= glm::toMat4(glm::quat(glm::radians(rotate)));
-
-    GBuffer::UBO ubo = { model, view, proj };
-    gBuffer.updateUniformBuffer(ubo);
-
-    void* data;
-    vkMapMemory(vkSetup.device, uniforms.memory, sizeof(ubo) * currentImage, sizeof(ubo), 0, &data);
-    memcpy(data, &ubo, sizeof(ubo));
-    vkUnmapMemory(vkSetup.device, uniforms.memory);
-}
-
-// Buffer utils
-
-std::vector<VkBuffer> Application::unwrapVkBuffers(const std::vector<VulkanBuffer>& vkBuffers) {
-    m_assert(vkBuffers.size() > 0, "There must be at least one buffer to extract...");
-    std::vector<VkBuffer> unwrapped(vkBuffers.size());
-
-    for (size_t i = 0; i < vkBuffers.size(); i++) {
-        unwrapped[i] = vkBuffers[i].buffer;
-    }
-
-    return unwrapped;
-}
-
 // Command buffers
 
 void Application::createCommandPool(VkCommandPool* commandPool, VkCommandPoolCreateFlags flags) {
-    utils::QueueFamilyIndices queueFamilyIndices = utils::QueueFamilyIndices::findQueueFamilies(vkSetup.physicalDevice, vkSetup.surface);
+    utils::QueueFamilyIndices queueFamilyIndices = 
+        utils::QueueFamilyIndices::findQueueFamilies(vkSetup.physicalDevice, vkSetup.surface);
 
-    // command pool needs two parameters
     VkCommandPoolCreateInfo poolInfo{};
     poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-    // the queue to submit to
-    poolInfo.queueFamilyIndex = queueFamilyIndices.graphicsFamily.value();
-    // flag for command pool, influences how command buffers are rerecorded
-    // VK_COMMAND_POOL_CREATE_TRANSIENT_BIT -> rerecorded with new commands often
-    // VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT -> let command buffers be rerecorded individually rather than together
-    poolInfo.flags = flags; // in our case, we only record at beginning of program so leave empty
+    poolInfo.queueFamilyIndex = queueFamilyIndices.graphicsFamily.value(); // the queue to submit to
+    poolInfo.flags            = flags;
 
-    // and create the command pool, we therfore ave to destroy it explicitly in cleanup
     if (vkCreateCommandPool(vkSetup.device, &poolInfo, nullptr, commandPool) != VK_SUCCESS) {
         throw std::runtime_error("failed to create command pool!");
     }
 }
 
-void Application::createCommandBuffers(std::vector<VkCommandBuffer>* commandBuffers, VkCommandPool& commandPool) {
-    // resize the command buffers container to the same size as the frame buffers container
-    commandBuffers->resize(framebufferData.framebuffers.size());
-
-    // create the struct
+void Application::createCommandBuffers(uint32_t count, VkCommandBuffer* commandBuffers, VkCommandPool& commandPool) {
     VkCommandBufferAllocateInfo allocInfo{};
-    allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO; // identify the struct type
-    allocInfo.commandPool = commandPool; // specify the command pool
-    allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY; // level specifes is the buffers are primary or secondary
-    // VK_COMMAND_BUFFER_LEVEL_PRIMARY -> can be submitted to a queue for exec but not called from other command buffers
-    // VK_COMMAND_BUFFER_LEVEL_SECONDARY -> cannot be submitted directly, but can be called from primary command buffers
-    allocInfo.commandBufferCount = (uint32_t)commandBuffers->size(); // the number of buffers to allocate
+    allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+    allocInfo.commandPool        = commandPool;
+    allocInfo.level              = VK_COMMAND_BUFFER_LEVEL_PRIMARY; 
+    allocInfo.commandBufferCount = count;
 
-    if (vkAllocateCommandBuffers(vkSetup.device, &allocInfo, commandBuffers->data()) != VK_SUCCESS) {
+    if (vkAllocateCommandBuffers(vkSetup.device, &allocInfo, commandBuffers) != VK_SUCCESS) {
         throw std::runtime_error("failed to allocate command buffers!");
     }
 }
 
-void Application::recordGeometryCommandBuffer(size_t cmdBufferIndex) {
-    // the following struct used as argument specifying details about the usage of specific command buffer
-    VkCommandBufferBeginInfo beginInfo{};
-    beginInfo.sType            = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-    beginInfo.flags            = 0; // VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT; // how we are going to use the command buffer
-    beginInfo.pInheritanceInfo = nullptr; // relevant to secondary comnmand buffers
+void Application::buildCompositionCommandBuffer(size_t cmdBufferIndex) {
+    VkCommandBufferBeginInfo commandBufferBeginInfo = utils::initCommandBufferBeginInfo();
 
-    // creating implicilty resets the command buffer if it was already recorded once, cannot append
-    // commands to a buffer at a later time!
-    if (vkBeginCommandBuffer(renderCommandBuffers[cmdBufferIndex], &beginInfo) != VK_SUCCESS) {
+    std::array<VkClearValue, 2> clearValues{};
+    clearValues[0].color           = { 0.0f, 0.0f, 0.0f, 1.0f };
+    clearValues[1].depthStencil    = { 1.0f, 0 };
+
+    VkRenderPassBeginInfo renderPassBeginInfo{};
+    renderPassBeginInfo.sType             = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+    renderPassBeginInfo.renderPass        = swapChain.renderPass;
+    renderPassBeginInfo.framebuffer       = framebufferData.framebuffers[cmdBufferIndex];
+    renderPassBeginInfo.renderArea.offset = { 0, 0 };
+    renderPassBeginInfo.renderArea.extent = swapChain.extent;
+    renderPassBeginInfo.clearValueCount   = static_cast<uint32_t>(clearValues.size());
+    renderPassBeginInfo.pClearValues      = clearValues.data();
+
+    // implicitly resets cmd buffer
+    if (vkBeginCommandBuffer(renderCommandBuffers[cmdBufferIndex], &commandBufferBeginInfo) != VK_SUCCESS) {
         throw std::runtime_error("failed to begin recording command buffer!");
     }
-
-    // create a render pass, initialised with some params in the following struct
-    VkRenderPassBeginInfo renderPassInfo{};
-    renderPassInfo.sType             = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-    renderPassInfo.renderPass        = swapChain.renderPass; // handle to the render pass and the attachments to bind
-    renderPassInfo.framebuffer       = framebufferData.framebuffers[cmdBufferIndex]; // the framebuffer created for each swapchain image view
-    renderPassInfo.renderArea.offset = { 0, 0 }; // some offset for the render area
-    // best performance if same size as attachment
-    renderPassInfo.renderArea.extent = swapChain.extent; // size of the render area (where shaders load and stores occur, pixels outside are undefined)
-
-    // because we used the VK_ATTACHMENT_LOAD_OP_CLEAR for load operations of the render pass, we need to set clear colours
-    std::array<VkClearValue, 2> clearValues{};
-    clearValues[0].color           = { 0.0f, 0.0f, 0.0f, 1.0f }; // black with max opacity
-    clearValues[1].depthStencil    = { 1.0f, 0 }; // initialise the depth value to far (1 in the range of 0 to 1)
-    renderPassInfo.clearValueCount = static_cast<uint32_t>(clearValues.size()); // only use a single value
-    renderPassInfo.pClearValues    = clearValues.data(); // the colour to use for clear operation
-
-    // begin the render pass. All vkCmd functions are void, so error handling occurs at the end
-    // first param for all cmd are the command buffer to record command to, second details the render pass we've provided
-    vkCmdBeginRenderPass(renderCommandBuffers[cmdBufferIndex], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
-    // final parameter controls how drawing commands within the render pass will be provided 
     
-    VkDeviceSize offset = 0;
-
-    // bind the graphics pipeline, second param determines if the object is a graphics or compute pipeline
-    vkCmdBindPipeline(renderCommandBuffers[cmdBufferIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, swapChain.pipeline);
-    vkCmdBindVertexBuffers(renderCommandBuffers[cmdBufferIndex], 0, 1, &vertexBuffer.buffer, &offset);
-
-    // bind the index buffer, can only have a single index buffer 
-    vkCmdBindIndexBuffer(renderCommandBuffers[cmdBufferIndex], indexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
-    // bind the uniform descriptor sets
-    vkCmdBindDescriptorSets(renderCommandBuffers[cmdBufferIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, swapChain.pipelineLayout, 0, 1, &descriptorSets[cmdBufferIndex], 0, nullptr);
-
-    vkCmdDrawIndexed(renderCommandBuffers[cmdBufferIndex], model.getNumIndices(0), 1, 0, 0, 0);
-
-    // end the render pass
+    vkCmdBeginRenderPass(renderCommandBuffers[cmdBufferIndex], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+    vkCmdBindPipeline(renderCommandBuffers[cmdBufferIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, gBuffer.deferredPipeline);
+    vkCmdBindDescriptorSets(renderCommandBuffers[cmdBufferIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, 
+        swapChain.pipelineLayout, 0, 1, &compositionDescriptorSets[cmdBufferIndex], 0, nullptr);
+    // draw a single triangle
+    vkCmdDraw(renderCommandBuffers[cmdBufferIndex], 3, 1, 0, 0);
     vkCmdEndRenderPass(renderCommandBuffers[cmdBufferIndex]);
 
-    // we've finished recording, so end recording and check for errors
     if (vkEndCommandBuffer(renderCommandBuffers[cmdBufferIndex]) != VK_SUCCESS) {
         throw std::runtime_error("failed to record command buffer!");
     }
 }
 
-void Application::recordGuiCommandBuffer(size_t cmdBufferIndex) {
-    // tell ImGui to render
-    ImGui::Render();
-
-    // start recording into a command buffer
-    VkCommandBufferBeginInfo commandbufferInfo = {};
-    commandbufferInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-    commandbufferInfo.flags |= VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+void Application::buildGuiCommandBuffer(size_t cmdBufferIndex) {
+    VkCommandBufferBeginInfo commandbufferInfo = utils::initCommandBufferBeginInfo(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
 
     if (vkBeginCommandBuffer(imGuiCommandBuffers[cmdBufferIndex], &commandbufferInfo) != VK_SUCCESS) {
         throw std::runtime_error("failed to begin recording command buffer!");
     }
 
+    VkClearValue clearValue{}; 
+    clearValue.color = { 0.0f, 0.0f, 0.0f, 0.0f }; // completely opaque clear value
+
     // begin the render pass
     VkRenderPassBeginInfo renderPassBeginInfo = {};
     renderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-    renderPassBeginInfo.renderPass = swapChain.imGuiRenderPass;
-    renderPassBeginInfo.framebuffer = framebufferData.imGuiFramebuffers[cmdBufferIndex];
-    renderPassBeginInfo.renderArea.extent.width = swapChain.extent.width;
+    renderPassBeginInfo.renderPass               = swapChain.imGuiRenderPass;
+    renderPassBeginInfo.framebuffer              = framebufferData.imGuiFramebuffers[cmdBufferIndex];
+    renderPassBeginInfo.renderArea.extent.width  = swapChain.extent.width;
     renderPassBeginInfo.renderArea.extent.height = swapChain.extent.height;
-    renderPassBeginInfo.clearValueCount = 1;
-
-    VkClearValue clearValue{ 0.0f, 0.0f, 0.0f, 0.0f }; // completely opaque clear value
+    renderPassBeginInfo.clearValueCount          = 1;
     renderPassBeginInfo.pClearValues = &clearValue;
 
-    vkCmdBeginRenderPass(imGuiCommandBuffers[imageIndex], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
-
-    // Record Imgui Draw Data and draw funcs into command buffer
-    ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), imGuiCommandBuffers[cmdBufferIndex]);
-
+    vkCmdBeginRenderPass(imGuiCommandBuffers[cmdBufferIndex], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+    ImGui::Render();
+    ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), imGuiCommandBuffers[cmdBufferIndex]); // ends imgui render
     vkCmdEndRenderPass(imGuiCommandBuffers[cmdBufferIndex]);
 
-    vkEndCommandBuffer(imGuiCommandBuffers[cmdBufferIndex]);
+    if (vkEndCommandBuffer(imGuiCommandBuffers[cmdBufferIndex]) != VK_SUCCESS) {
+        throw std::runtime_error("failed to record ImGui command buffer!");
+    }
+}
+
+void Application::buildOffscreenCommandBuffer(size_t cmdBufferIndex) {
+    VkCommandBufferBeginInfo commandBufferBeginInfo = utils::initCommandBufferBeginInfo();
+
+    // Clear values for all attachments written in the fragment shader
+    std::array<VkClearValue, 4> clearValues{};
+    clearValues[0].color = { 0.0f, 0.0f, 0.0f, 0.0f };
+    clearValues[1].color = { 0.0f, 0.0f, 0.0f, 0.0f };
+    clearValues[2].color = { 0.0f, 0.0f, 0.0f, 0.0f };
+    clearValues[3].depthStencil = { 1.0f, 0 };
+
+    VkRenderPassBeginInfo renderPassBeginInfo{};
+    renderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+    renderPassBeginInfo.renderPass        = gBuffer.deferredRenderPass;
+    renderPassBeginInfo.framebuffer       = gBuffer.deferredFrameBuffer;
+    renderPassBeginInfo.renderArea.extent = gBuffer.extent;
+    renderPassBeginInfo.clearValueCount   = static_cast<uint32_t>(clearValues.size());
+    renderPassBeginInfo.pClearValues      = clearValues.data();
+
+    // implicitly resets cmd buffer
+    if (vkBeginCommandBuffer(offScreenCommandBuffers[cmdBufferIndex], &commandBufferBeginInfo) != VK_SUCCESS) {
+        throw std::runtime_error("failed to begin recording command buffer!");
+    }
+
+    vkCmdBeginRenderPass(offScreenCommandBuffers[cmdBufferIndex], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+
+    // scene pipeline
+    vkCmdBindPipeline(offScreenCommandBuffers[cmdBufferIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, gBuffer.offScreenPipeline);
+    vkCmdBindDescriptorSets(offScreenCommandBuffers[cmdBufferIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, gBuffer.layout, 0, 1,
+        &offScreenDescriptorSet, 0, nullptr);
+    VkDeviceSize offset = 0; // offset into vertex buffer
+    vkCmdBindVertexBuffers(offScreenCommandBuffers[cmdBufferIndex], 0, 1, &vertexBuffer.buffer, &offset);
+    vkCmdBindIndexBuffer(offScreenCommandBuffers[cmdBufferIndex], indexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
+    vkCmdDrawIndexed(offScreenCommandBuffers[cmdBufferIndex], model.getNumIndices(0), 1, 0, 0, 0);
+
+    // skybox pipeline
+    vkCmdBindPipeline(offScreenCommandBuffers[cmdBufferIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, gBuffer.skyboxPipeline);
+    vkCmdBindDescriptorSets(offScreenCommandBuffers[cmdBufferIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, gBuffer.layout, 0, 1,
+        &skyboxDescriptorSet, 0, nullptr);
+    vkCmdBindVertexBuffers(offScreenCommandBuffers[cmdBufferIndex], 0, 1, &skybox.vertexBuffer.buffer, &offset);
+    vkCmdDraw(offScreenCommandBuffers[cmdBufferIndex], 36, 1, 0, 0);
+
+    vkCmdEndRenderPass(offScreenCommandBuffers[cmdBufferIndex]);
+
+    if (vkEndCommandBuffer(offScreenCommandBuffers[cmdBufferIndex]) != VK_SUCCESS) {
+        throw std::runtime_error("failed to record command buffer!");
+    }
 }
 
 // Handling window resize events
@@ -493,14 +507,14 @@ void Application::framebufferResizeCallback(GLFWwindow* window, int width, int h
 // Synchronisation
 
 void Application::createSyncObjects() {
-    // resize the semaphores to the number of simultaneous frames, each has its own semaphores
     imageAvailableSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
     renderFinishedSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
+    offScreenSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
+
     inFlightFences.resize(MAX_FRAMES_IN_FLIGHT);
-    imagesInFlight.resize(swapChain.images.size(), VK_NULL_HANDLE); // explicitly initialise the fences in this vector to no fence
+    imagesInFlight.resize(swapChain.images.size(), VK_NULL_HANDLE);
 
     VkSemaphoreCreateInfo semaphoreInfo{};
-    // only required field at the moment, may change in the future
     semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
 
     VkFenceCreateInfo fenceInfo{};
@@ -509,11 +523,13 @@ void Application::createSyncObjects() {
 
     // simply loop over each frame and create semaphores for them
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-        // attempt to create the semaphors
         if (vkCreateSemaphore(vkSetup.device, &semaphoreInfo, nullptr, &imageAvailableSemaphores[i]) != VK_SUCCESS ||
             vkCreateSemaphore(vkSetup.device, &semaphoreInfo, nullptr, &renderFinishedSemaphores[i]) != VK_SUCCESS ||
-            vkCreateFence(vkSetup.device, &fenceInfo, nullptr, &inFlightFences[i]) != VK_SUCCESS) {
+            vkCreateSemaphore(vkSetup.device, &semaphoreInfo, nullptr, &offScreenSemaphores[i]) != VK_SUCCESS) {
             throw std::runtime_error("failed to create semaphores!");
+        }
+        if (vkCreateFence(vkSetup.device, &fenceInfo, nullptr, &inFlightFences[i]) != VK_SUCCESS) {
+            throw std::runtime_error("failed to create fences!");
         }
     }
 }
@@ -524,33 +540,24 @@ void Application::createSyncObjects() {
 
 void Application::mainLoop() {
     prevTime = std::chrono::high_resolution_clock::now();
-    glfwGetCursorPos(window, &prevMouse.x, &prevMouse.y);
     
     // loop keeps window open
     while (!glfwWindowShouldClose(window)) {
         glfwPollEvents();
         // get the time before the drawing frame
-        deltaTime = std::chrono::duration<float, std::chrono::seconds::period>(std::chrono::high_resolution_clock::now() - prevTime).count();
-
-        glfwGetCursorPos(window, &currMouse.x, &currMouse.y);
+        currTime = std::chrono::high_resolution_clock::now();
+        deltaTime = std::chrono::duration<float, std::chrono::seconds::period>(currTime - prevTime).count();
 
         if (processKeyInput() == 0)
             break;
 
-        if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS) {
-            // get the current mouse position
-            processMouseInput(currMouse);
-        }
-        else {
-            firstMouse = true;
-        }
-
+        // sets the current GUI
         setGUI();
+
         // draw the frame
         drawFrame();
 
-        prevTime = std::chrono::high_resolution_clock::now();
-        glfwGetCursorPos(window, &prevMouse.x, &prevMouse.y);
+        prevTime = currTime;
     }
     vkDeviceWaitIdle(vkSetup.device);
 }
@@ -558,76 +565,71 @@ void Application::mainLoop() {
 // Frame drawing, GUI setting and UI
 
 void Application::drawFrame() {
-    // will acquire an image from swap chain, exec commands in command buffer with images as attachments in the frameBuffer
-    // return the image to the swap buffer. These tasks are started simultaneously but executed asynchronously.
-    // However we want these to occur in sequence because each relies on the previous task success
-    // For syncing can use semaphores or fences and coordinate operations by having one op signal another
-    // op and another operation wait for a fence or semaphor to go from unsignaled to signaled.
-    // we can access fence state with vkWaitForFences and not semaphores.
-    // fences are mainly for syncing app with rendering op, use here to synchronise the frame rate
-    // semaphores are for syncing ops within or across cmd queues. We want to sync queue op to draw cmds and presentation so pref semaphores here
+    // will acquire an image from swap chain, exec commands in command buffer with images as attachments in the 
+    // frameBuffer return the image to the swap buffer. These tasks are started simultaneously but executed 
+    // asynchronously. However we want these to occur in sequence because each relies on the previous task success
+    // For syncing we can use semaphores or fences and coordinate operations by having one operation signal another 
+    // and another wait for a fence or semaphore to go from unsignaled to signaled.
+    // We can access fence state with vkWaitForFences but not semaphores.
+    // Fences are mainly for syncing app with rendering operations, used here to synchronise the frame rate.
+    // Semaphores are for syncing operations within or across cmd queues. 
+    // We want to sync queue operations to draw cmds and presentation, and we want to make sure the offscreen cmds
+    // have finished before the final image composition using semaphores. 
+    /*************************************************************************************************************/
 
-    // at the start of the frame, make sure that the previous frame has finished which will signal the fence
+    // previous frame finished will fence
     vkWaitForFences(vkSetup.device, 1, &inFlightFences[currentFrame], VK_TRUE, UINT64_MAX);
 
-    // retrieve an image from the swap chain
-    // swap chain is an extension so use the vk*KHR function
-    VkResult result = vkAcquireNextImageKHR(vkSetup.device, swapChain.swapChain, UINT64_MAX, imageAvailableSemaphores[currentFrame], VK_NULL_HANDLE, &imageIndex); // params:
-    // the logical device and the swap chain we want to restrieve image from
-    // a timeout in ns. Using UINT64_MAX disables it
-    // synchronisation objects, so a semaphore
-    // handle to another sync object (which we don't use so nul handle)
-    // variable to output the swap chain image that has become available
+    VkResult result = vkAcquireNextImageKHR(vkSetup.device, swapChain.swapChain, UINT64_MAX, 
+        imageAvailableSemaphores[currentFrame], VK_NULL_HANDLE, &imageIndex); 
 
-    // Vulkan tells us if the swap chain is out of date with this result value (the swap chain is incompatible with the surface, eg window resize)
     if (result == VK_ERROR_OUT_OF_DATE_KHR) {
-        // if so then recreate the swap chain and try to acquire the image from the new swap chain
         recreateVulkanData();
         return; // return to acquire the image again
     }
-    else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) { // both values here are considered "success", even if partial, values
+    else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) { 
         throw std::runtime_error("failed to acquire swap chain image!");
     }
 
-    // Check if a previous frame is using this image (i.e. there is its fence to wait on)
-    if (imagesInFlight[imageIndex] != VK_NULL_HANDLE) {
+    if (imagesInFlight[imageIndex] != VK_NULL_HANDLE) { // Check if a previous frame is using this image
         vkWaitForFences(vkSetup.device, 1, &imagesInFlight[imageIndex], VK_TRUE, UINT64_MAX);
     }
 
-    // Mark the image as now being in use by this frame
-    imagesInFlight[imageIndex] = inFlightFences[currentFrame];
+    imagesInFlight[imageIndex] = inFlightFences[currentFrame]; // set image as in use by current frame
 
-    // update the unifrom buffer before submitting
     updateUniformBuffers(imageIndex);
 
-    // record the GUI command buffers
-    recordGuiCommandBuffer(imageIndex);
+    buildGuiCommandBuffer(imageIndex);
 
-    // the two command buffers, for geometry and UI
-    std::array<VkCommandBuffer, 2> submitCommandBuffers = { renderCommandBuffers[imageIndex], imGuiCommandBuffers[imageIndex] };
-
-    // info needed to submit the command buffers
+    VkPipelineStageFlags waitStages = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
     VkSubmitInfo submitInfo{};
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-    // which semaphores to wait on before execution begins
-    VkSemaphore waitSemaphores[] = { imageAvailableSemaphores[currentFrame] };
-    // which stages of the pipeline to wait at (here at the stage where we write colours to the attachment)
-    // we can in theory start work on vertex shader etc while image is not yet available
-    VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
-    submitInfo.waitSemaphoreCount = 1;
-    submitInfo.pWaitSemaphores = waitSemaphores;
-    submitInfo.pWaitDstStageMask = waitStages; // for each sempahore we provide a wait stage
-    // which command buffer to submit to, submit the cmd buffer that binds the swap chain image we acquired as color attachment
-    submitInfo.commandBufferCount = static_cast<uint32_t>(submitCommandBuffers.size());
-    submitInfo.pCommandBuffers = submitCommandBuffers.data();
+    submitInfo.pWaitDstStageMask = &waitStages;
 
-    // which semaphores to signal once the command buffer(s) has finished, we are using the renderFinishedSemaphore for that
-    VkSemaphore signalSemaphores[] = { renderFinishedSemaphores[imageIndex] };
+    // offscreen rendering
+    submitInfo.waitSemaphoreCount   = 1;
+    submitInfo.pWaitSemaphores      = &imageAvailableSemaphores[currentFrame];
     submitInfo.signalSemaphoreCount = 1;
-    submitInfo.pSignalSemaphores = signalSemaphores;
+    submitInfo.pSignalSemaphores    = &offScreenSemaphores[currentFrame];
 
-    // reset the fence so that when submitting the commands to the graphics queue, the fence is set to block so no subsequent 
-    vkResetFences(vkSetup.device, 1, &inFlightFences[currentFrame]);
+    submitInfo.commandBufferCount = 1;
+    submitInfo.pCommandBuffers    = &offScreenCommandBuffers[currentFrame];
+
+    if (vkQueueSubmit(vkSetup.graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE) != VK_SUCCESS) {
+        throw std::runtime_error("failed to submit draw command buffer!");
+    }
+    // scene and Gui rendering
+    submitInfo.waitSemaphoreCount   = 1;
+    submitInfo.pWaitSemaphores      = &offScreenSemaphores[currentFrame];
+    submitInfo.signalSemaphoreCount = 1;
+    submitInfo.pSignalSemaphores    = &renderFinishedSemaphores[currentFrame];
+
+    std::array<VkCommandBuffer, 2> submitCommandBuffers = { renderCommandBuffers[imageIndex], imGuiCommandBuffers[imageIndex] };
+    submitInfo.commandBufferCount = static_cast<uint32_t>(submitCommandBuffers.size());
+    submitInfo.pCommandBuffers    = submitCommandBuffers.data();
+
+    // reset the fence so fence blocks when submitting 
+    vkResetFences(vkSetup.device, 1, &inFlightFences[currentFrame]); 
 
     // submit the command buffer to the graphics queue, takes an array of submitinfo when work load is much larger
     // last param is a fence, which is signaled when the cmd buffer finishes executing and is used to inform that the frame has finished
@@ -639,23 +641,19 @@ void Application::drawFrame() {
     // submitting the result back to the swap chain to have it shown onto the screen
     VkPresentInfoKHR presentInfo{};
     presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
-    // which semaphores to wait on 
-    presentInfo.waitSemaphoreCount = 1;
-    presentInfo.pWaitSemaphores = signalSemaphores;
-    // specify the swap chains to present image to and index of image for each swap chain
-    VkSwapchainKHR swapChains[] = { swapChain.swapChain };
-    presentInfo.swapchainCount = 1;
-    presentInfo.pSwapchains = swapChains;
-    presentInfo.pImageIndices = &imageIndex;
-    // allows to specify an array of vKResults to check for every individual swap chain if presentation is succesful
-    presentInfo.pResults = nullptr; // Optional
 
-    // submit the request to put an image from the swap chain to the presentation queue
+    presentInfo.waitSemaphoreCount = 1;
+    presentInfo.pWaitSemaphores    = &renderFinishedSemaphores[currentFrame];
+
+    presentInfo.swapchainCount = 1;
+    presentInfo.pSwapchains    = &swapChain.swapChain;
+    presentInfo.pImageIndices  = &imageIndex;
+
+    // submit request to put image from the swap chain to the presentation queue
     result = vkQueuePresentKHR(vkSetup.presentQueue, &presentInfo);
 
-    // similar to when acquiring the swap chain image, check that the presentation queue can accept the image, also check for resizing
+    // check presentation queue can accept the image and any resize
     if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || framebufferResized) {
-        // tell the swapchaindata to change whether to enable or disable the depth testing when recreating the pipeline
         framebufferResized = false;
         recreateVulkanData();
     }
@@ -663,7 +661,7 @@ void Application::drawFrame() {
         throw std::runtime_error("failed to present swap chain image!");
     }
 
-    // after the frame is drawn and presented, increment current frame count (% loops around)
+    // increment current frame 
     currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
 }
 
@@ -672,13 +670,56 @@ void Application::setGUI() {
     ImGui_ImplVulkan_NewFrame(); // empty
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
+    const char* attachments[] = { "composition", "position", "normal", "albedo", "depth" };
 
     ImGui::Begin("Options", nullptr, ImGuiWindowFlags_NoMove);
     ImGui::BulletText("Transforms:");
     ImGui::SliderFloat3("translate", &translate[0], -2.0f, 2.0f);
     ImGui::SliderFloat3("rotate", &rotate[0], -180.0f, 180.0f);
     ImGui::SliderFloat("Scale:", &scale, 0.0f, 1.0f);
+    ImGui::BulletText("Attachments:");
+    ImGui::SameLine();
+    ImGui::Combo("", &attachmentNum, attachments, SizeofArray(attachments));
     ImGui::End();
+}
+
+// Uniforms
+
+void Application::updateUniformBuffers(uint32_t currentImage) {
+    // offscreen ubo
+    glm::mat4 proj = glm::perspective(glm::radians(45.0f), swapChain.extent.width / (float)swapChain.extent.height, 0.1f, 10.0f);
+    proj[1][1] *= -1.0f; // y coordinates inverted, Vulkan origin top left vs OpenGL bottom left
+
+    glm::mat4 model = glm::translate(glm::mat4(1.0f), translate);
+    model = glm::scale(model, glm::vec3(scale, scale, scale));
+    glm::mat4 rotateZ(1.0f);
+    rotateZ[0][0] *= -1.0f;
+    rotateZ[1][1] *= -1.0f;
+    model *= rotateZ * glm::toMat4(glm::quat(glm::radians(rotate)));
+
+    GBuffer::OffScreenUbo offscreenUbo{};
+    offscreenUbo.model = model;
+    offscreenUbo.view = camera.getViewMatrix();
+    offscreenUbo.projection = proj;
+    offscreenUbo.normal = glm::transpose(glm::inverse(glm::mat3(model)));
+
+    gBuffer.updateOffScreenUniformBuffer(offscreenUbo);
+
+    // skybox ubo
+    Skybox::UBO skyboxUbo{};
+    skyboxUbo.view = glm::mat4(glm::mat3(camera.getViewMatrix()));
+    skyboxUbo.projection = proj;
+
+    skybox.updateSkyboxUniformBuffer(skyboxUbo);
+
+    // composition ubo
+    GBuffer::CompositionUBO compositionUbo = {};
+    compositionUbo.guiData = { camera.position, attachmentNum };
+    compositionUbo.lights[0] = lights[0]; // pos, colour, radius
+    compositionUbo.lights[1] = lights[1];
+    compositionUbo.lights[2] = lights[2];
+    compositionUbo.lights[3] = lights[3];
+    gBuffer.updateCompositionUniformBuffer(currentImage, compositionUbo);
 }
 
 int Application::processKeyInput() {
@@ -686,24 +727,49 @@ int Application::processKeyInput() {
     if (glfwGetKey(window, GLFW_KEY_ESCAPE))
         return 0;
 
-    // debug camera on
     if (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT)) {
-        if (glfwGetKey(window, GLFW_KEY_W) || glfwGetKey(window, GLFW_KEY_UP))
+        // up/down 
+        if (glfwGetKey(window, GLFW_KEY_UP))
             camera.processInput(CameraMovement::Upward, deltaTime);
-        if (glfwGetKey(window, GLFW_KEY_S) || glfwGetKey(window, GLFW_KEY_DOWN))
+        if (glfwGetKey(window, GLFW_KEY_DOWN))
             camera.processInput(CameraMovement::Downward, deltaTime);
     }
     else {
-        if (glfwGetKey(window, GLFW_KEY_W) || glfwGetKey(window, GLFW_KEY_UP))
+        // front/back
+        if (glfwGetKey(window, GLFW_KEY_UP))
             camera.processInput(CameraMovement::Forward, deltaTime);
-        if (glfwGetKey(window, GLFW_KEY_S) || glfwGetKey(window, GLFW_KEY_DOWN))
+        if (glfwGetKey(window, GLFW_KEY_DOWN))
             camera.processInput(CameraMovement::Backward, deltaTime);
     }
-    if (glfwGetKey(window, GLFW_KEY_A) || glfwGetKey(window, GLFW_KEY_LEFT))
+
+    // left/right
+    if (glfwGetKey(window, GLFW_KEY_LEFT))
         camera.processInput(CameraMovement::Left, deltaTime);
-    if (glfwGetKey(window, GLFW_KEY_D) || glfwGetKey(window, GLFW_KEY_RIGHT))
+    if (glfwGetKey(window, GLFW_KEY_RIGHT))
         camera.processInput(CameraMovement::Right, deltaTime);
-    
+
+    // pitch up/down
+    if (glfwGetKey(window, GLFW_KEY_W))
+        camera.processInput(CameraMovement::PitchUp, deltaTime);
+    if (glfwGetKey(window, GLFW_KEY_S))
+        camera.processInput(CameraMovement::PitchDown, deltaTime);
+
+    // yaw left/right
+    if (glfwGetKey(window, GLFW_KEY_A))
+        camera.processInput(CameraMovement::YawLeft, deltaTime);
+    if (glfwGetKey(window, GLFW_KEY_D))
+        camera.processInput(CameraMovement::YawRight, deltaTime);
+
+    if (glfwGetKey(window, GLFW_KEY_Q))
+        camera.processInput(CameraMovement::RollLeft, deltaTime);
+    if (glfwGetKey(window, GLFW_KEY_E))
+        camera.processInput(CameraMovement::RollRight, deltaTime);
+
+    if (glfwGetKey(window, GLFW_KEY_SPACE)) {
+        camera.orientation.orientation = { 0.0f, 0.0f, 0.0f, 1.0f };
+        camera.position = { 0.0f, 0.0f, 3.0f };
+    }
+
     // other wise just return true
     return 1;
 }
@@ -721,12 +787,12 @@ void Application::processMouseInput(glm::dvec2& curr) {
     deltaMouse *= sensitivity;
 
     // offset dictates the amount we rotate by 
-    camera.yaw   = static_cast<float>(deltaMouse.x);
-    camera.pitch = static_cast<float>(deltaMouse.y);
+    //camera.yaw   = static_cast<float>(deltaMouse.x);
+    //camera.pitch = static_cast<float>(deltaMouse.y);
 
     // pass the angles to the camera
-    camera.orientation.applyRotation(WORLD_UP, glm::radians(camera.yaw));
-    camera.orientation.applyRotation(WORLD_RIGHT, glm::radians(camera.pitch));
+    //camera.orientation.applyRotation(WORLD_UP, glm::radians(camera.yaw));
+    //camera.orientation.applyRotation(WORLD_RIGHT, glm::radians(camera.pitch));
 }
 
 //
@@ -743,12 +809,12 @@ void Application::cleanup() {
         texture.cleanupTexture();
     }
 
+    skybox.cleanupSkybox();
+
     // destroy whatever is dependent on the old swap chain
     vkFreeCommandBuffers(vkSetup.device, renderCommandPool, static_cast<uint32_t>(renderCommandBuffers.size()), renderCommandBuffers.data());
     vkFreeCommandBuffers(vkSetup.device, imGuiCommandPool, static_cast<uint32_t>(imGuiCommandBuffers.size()), imGuiCommandBuffers.data());
-    
-    // also destroy the uniform buffers that worked with the swap chain
-    uniforms.cleanupBufferData(vkSetup.device);
+    vkFreeCommandBuffers(vkSetup.device, renderCommandPool, static_cast<uint32_t>(offScreenCommandBuffers.size()), offScreenCommandBuffers.data());
 
     // call the function we created for destroying the swap chain and frame buffers
     // in the reverse order of their creation
@@ -768,6 +834,7 @@ void Application::cleanup() {
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
         vkDestroySemaphore(vkSetup.device, renderFinishedSemaphores[i], nullptr);
         vkDestroySemaphore(vkSetup.device, imageAvailableSemaphores[i], nullptr);
+        vkDestroySemaphore(vkSetup.device, offScreenSemaphores[i], nullptr);
         vkDestroyFence(vkSetup.device, inFlightFences[i], nullptr);
     }
 

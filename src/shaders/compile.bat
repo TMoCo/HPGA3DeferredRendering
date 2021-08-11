@@ -6,4 +6,12 @@ C:/VulkanSDK/1.2.162.1/Bin/glslc.exe deferred.vert -o deferred.vert.spv
 
 C:/VulkanSDK/1.2.162.1/Bin/glslc.exe deferred.frag -o deferred.frag.spv
 
+C:/VulkanSDK/1.2.162.1/Bin/glslc.exe forward.vert -o forward.vert.spv
+
+C:/VulkanSDK/1.2.162.1/Bin/glslc.exe forward.frag -o forward.frag.spv
+
+C:/VulkanSDK/1.2.162.1/Bin/glslc.exe skybox.vert -o skybox.vert.spv
+
+C:/VulkanSDK/1.2.162.1/Bin/glslc.exe skybox.frag -o skybox.frag.spv
+
 pause

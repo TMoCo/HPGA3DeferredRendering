@@ -2,7 +2,7 @@
 // FramebufferData class definition
 //
 
-#include <hpg/FramebufferData.h>
+#include <hpg/FrameBuffer.h>
 
 // reporting and propagating exceptions
 #include <iostream> 
@@ -15,7 +15,7 @@
 //
 //////////////////////
 
-void FramebufferData::initFramebufferData(VulkanSetup* pVkSetup, const SwapChain* swapChainData, const VkCommandPool& commandPool) {
+void FrameBuffer::initFrameBuffer(VulkanSetup* pVkSetup, const SwapChain* swapChainData, const VkCommandPool& commandPool) {
     // update the pointer to the setup data rather than passing as argument to functions
     vkSetup = pVkSetup;
     // first create the depth resource
@@ -25,7 +25,7 @@ void FramebufferData::initFramebufferData(VulkanSetup* pVkSetup, const SwapChain
     createImGuiFramebuffers(swapChainData);
 }
 
-void FramebufferData::cleanupFrambufferData() {
+void FrameBuffer::cleanupFramBuffer() {
     // cleanup the depth resource
     depthResource.cleanupDepthResource();
 
@@ -42,7 +42,7 @@ void FramebufferData::cleanupFrambufferData() {
 //
 //////////////////////
 
-void FramebufferData::createFrameBuffers(const SwapChain* swapChain) {
+void FrameBuffer::createFrameBuffers(const SwapChain* swapChain) {
     // resize the container to hold all the framebuffers, or image views, in the swap chain
     framebuffers.resize(swapChain->imageViews.size());
 
@@ -70,7 +70,7 @@ void FramebufferData::createFrameBuffers(const SwapChain* swapChain) {
     }
 }
 
-void FramebufferData::createImGuiFramebuffers(const SwapChain* swapChain) {
+void FrameBuffer::createImGuiFramebuffers(const SwapChain* swapChain) {
     // resize the container to hold all the framebuffers, or image views, in the swap chain
     imGuiFramebuffers.resize(swapChain->imageViews.size());
 

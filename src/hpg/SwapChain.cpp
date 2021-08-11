@@ -5,23 +5,34 @@
 #include <app/AppConstants.h>
 
 #include <hpg/SwapChain.h>// include the class declaration
-#include <hpg/Shader.h>// include the shader struct 
+#include <hpg/Shader.h>   // include the shader struct 
+#include <hpg/Image.h>    // image view create
 
 // exceptions
 #include <iostream>
 #include <stdexcept>
-//-Members-----------------------------------------------------------//
+
+
 void SwapChain::initSwapChain(VulkanSetup* pVkSetup, Model* model, VkDescriptorSetLayout* descriptorSetLayout) {
     // update the pointer to the setup data rather than passing as argument to functions
     vkSetup = pVkSetup;
     // create the swap chain
     createSwapChain();
+
     // then create the image views for the images created
-    createSwapChainImageViews();
+    imageViews.resize(images.size());
+    for (size_t i = 0; i < images.size(); i++) {
+        VkImageViewCreateInfo imageViewCreateInfo = utils::initImageViewCreateInfo(images[i],
+            VK_IMAGE_VIEW_TYPE_2D, imageFormat, {}, { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 });
+        imageViews[i] = VulkanImage::createImageView(vkSetup, imageViewCreateInfo);
+    }
+
     // then the geometry render pass 
     createRenderPass();
+
     // and the ImGUI render pass
     createImGuiRenderPass();
+
     // followed by the graphics pipeline
     createForwardPipeline(descriptorSetLayout, model);
 }
@@ -98,7 +109,7 @@ void SwapChain::createSwapChain() {
 
     // save format and extent
     imageFormat = surfaceFormat.format;
-    extent = newExtent;
+    extent      = newExtent;
 }
 
 VulkanSetup::SwapChainSupportDetails SwapChain::querySwapChainSupport() {
@@ -134,7 +145,9 @@ VulkanSetup::SwapChainSupportDetails SwapChain::querySwapChainSupport() {
 VkSurfaceFormatKHR SwapChain::chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats) {
     // VkSurfaceFormatKHR entry contains a format and colorSpace member
     // format is colour channels and type eg VK_FORMAT_B8G8R8A8_SRGB (8 bit uint BGRA channels, 32 bits per pixel)
-    // colorSpace is the coulour space that indicates if SRGB is supported with VK_COLOR_SPACE_SRGB_NONLINEAR_KHR (used to be VK_COLORSPACE_SRGB_NONLINEAR_KHR)
+    // colorSpace is the coulour space that indicates if SRGB is supported with VK_COLOR_SPACE_SRGB_NONLINEAR_KHR 
+    // (used to be VK_COLORSPACE_SRGB_NONLINEAR_KHR)
+    /*************************************************************************************************************/
 
     // loop through available formats
     for (const auto& availableFormat : availableFormats) {
@@ -150,12 +163,16 @@ VkSurfaceFormatKHR SwapChain::chooseSwapSurfaceFormat(const std::vector<VkSurfac
 VkPresentModeKHR SwapChain::chooseSwapPresentMode(const std::vector<VkPresentModeKHR>& availablePresentModes) {
     // presentation mode, can be one of four possible values:
     // VK_PRESENT_MODE_IMMEDIATE_KHR -> image submitted by app is sent straight to screen, may result in tearing
-    // VK_PRESENT_MODE_FIFO_KHR -> swap chain is a queue where display takes an image from front when display is refreshed. Program inserts rendered images at back. 
+    // VK_PRESENT_MODE_FIFO_KHR -> swap chain is a queue where display takes an image from front when display is 
+    // refreshed. Program inserts rendered images at back. 
     // If queue full, program has to wait. Most similar vsync. Moment display is refreshed is "vertical blank".
-    // VK_PRESENT_MODE_FIFO_RELAXED_KHR -> Mode only differs from previous if application is late and queue empty at last vertical blank. Instead of waiting for next vertical blank, 
-    // image is transferred right away when it finally arrives, may result tearing.
-    // VK_PRESENT_MODE_MAILBOX_KHR -> another variation of second mode. Instead of blocking the app when queue is full, images that are already queued are replaced with newer ones.
-    // Can be used to implement triple buffering, which allows to avoid tearing with less latency issues than standard vsync using double buffering.
+    // VK_PRESENT_MODE_FIFO_RELAXED_KHR -> Mode only differs from previous if application is late and queue empty 
+    // at last vertical blank. Instead of waiting for next vertical blank. image is transferred right away when it 
+    // finally arrives, may result tearing.
+    // VK_PRESENT_MODE_MAILBOX_KHR -> another variation of second mode. Instead of blocking the app when queue is 
+    // full, images that are already queued are replaced with newer ones. Can be used to implement triple buffering
+    // which allows to avoid tearing with less latency issues than standard vsync using double buffering.   
+    /*************************************************************************************************************/
 
     for (const auto& availablePresentMode : availablePresentModes) {
         // use triple buffering if available
@@ -189,33 +206,6 @@ VkExtent2D SwapChain::chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilit
         actualExtent.height = std::max(capabilities.minImageExtent.height, std::min(capabilities.maxImageExtent.height, actualExtent.height));
 
         return actualExtent;
-    }
-}
-
-void SwapChain::createSwapChainImageViews() {
-    imageViews.resize(images.size());
-    
-    // loop to iterate through images and create a view for each
-    for (size_t i = 0; i < images.size(); i++) {
-        // helper function for creating image views with a specific format
-        VkImageViewCreateInfo viewInfo{};
-        viewInfo.sType                           = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-        viewInfo.image                           = images[i];
-        viewInfo.viewType                        = VK_IMAGE_VIEW_TYPE_2D;
-        viewInfo.format                          = imageFormat;
-        viewInfo.components.r                    = VK_COMPONENT_SWIZZLE_IDENTITY;
-        viewInfo.components.g                    = VK_COMPONENT_SWIZZLE_IDENTITY;
-        viewInfo.components.b                    = VK_COMPONENT_SWIZZLE_IDENTITY;
-        viewInfo.components.a                    = VK_COMPONENT_SWIZZLE_IDENTITY;
-        viewInfo.subresourceRange.aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT; // purpose
-        viewInfo.subresourceRange.baseMipLevel   = 0;
-        viewInfo.subresourceRange.levelCount     = 1;
-        viewInfo.subresourceRange.baseArrayLayer = 0;
-        viewInfo.subresourceRange.layerCount     = 1;
-
-        if (vkCreateImageView(vkSetup->device, &viewInfo, nullptr, &imageViews[i]) != VK_SUCCESS) {
-            throw std::runtime_error("failed to create texture image view!");
-        }
     }
 }
 
@@ -257,7 +247,7 @@ void SwapChain::createRenderPass() {
 
     // the subpass
     VkSubpassDescription subpass{};
-    subpass.pipelineBindPoint       = VK_PIPELINE_BIND_POINT_GRAPHICS; // explicit a graphics subpass (vs compute subpasses)
+    subpass.pipelineBindPoint       = VK_PIPELINE_BIND_POINT_GRAPHICS; // explicit a graphics subpass 
     subpass.colorAttachmentCount    = 1;
     subpass.pColorAttachments       = &colorAttachmentRef;
     subpass.pDepthStencilAttachment = &depthAttachmentRef;
@@ -273,10 +263,24 @@ void SwapChain::createRenderPass() {
     // - make the render pass wait for the VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT stage.
     **************************************************************************************************************/
 
-    VkSubpassDependency dependency{};
-    // dstSubpass > srcSubpass at all times to prevent cycles 
-    dependency.srcSubpass = VK_SUBPASS_EXTERNAL; // implicit subpass before or after renderpass 
-    dependency.dstSubpass = 0;
+    VkSubpassDependency dependency = {};
+    dependency.srcSubpass    = VK_SUBPASS_EXTERNAL;
+    dependency.dstSubpass    = 0;
+    dependency.srcStageMask  = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    dependency.dstStageMask  = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    dependency.srcAccessMask = 0;
+    dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+
+    /*
+    std::array<VkSubpassDependency, 2> dependencies; // see struct definition for more details
+    dependencies[0] = { VK_SUBPASS_EXTERNAL, 0, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
+        VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_MEMORY_READ_BIT,
+        VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, 0 };
+
+    dependencies[1] = { 0, VK_SUBPASS_EXTERNAL, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+        VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+        VK_ACCESS_MEMORY_READ_BIT, 0 };
+    */
 
     /**************************************************************************************************************
     // Specify the operations to wait on and stages when ops occur.
@@ -288,23 +292,17 @@ void SwapChain::createRenderPass() {
     // operation that clears, we should specify the access mask for writes.
     **************************************************************************************************************/
 
-    dependency.srcStageMask  = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
-    dependency.srcAccessMask = 0;
-    // ops that should wait are in colour attachment stage and involve writing of the colour attachment
-    dependency.dstStageMask  = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
-    dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-
-    // now create the render pass, can be created by filling the structure with references to arrays for multiple subpasses, attachments and dependencies
-    std::array<VkAttachmentDescription, 2> attachments = { colorAttachment, depthAttachment }; // store the attachments
+    // create the render pass
+    std::array<VkAttachmentDescription, 2> attachments = { colorAttachment, depthAttachment };
     VkRenderPassCreateInfo renderPassInfo{};
     renderPassInfo.sType           = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
     renderPassInfo.attachmentCount = static_cast<uint32_t>(attachments.size());
-    renderPassInfo.pAttachments    = attachments.data(); // the colour attachment for the renderpass
+    renderPassInfo.pAttachments    = attachments.data();
     renderPassInfo.subpassCount    = 1;
-    renderPassInfo.pSubpasses      = &subpass; // the associated supass
+    renderPassInfo.pSubpasses      = &subpass; // associated supass
     // specify the dependency
-    renderPassInfo.dependencyCount = 1;
-    renderPassInfo.pDependencies   = &dependency;
+    renderPassInfo.dependencyCount = 1;// static_cast<uint32_t>(dependencies.size());
+    renderPassInfo.pDependencies = &dependency;// dependencies.data();
 
     // explicitly create the renderpass
     if (vkCreateRenderPass(vkSetup->device, &renderPassInfo, nullptr, &renderPass) != VK_SUCCESS) {
@@ -314,40 +312,40 @@ void SwapChain::createRenderPass() {
 
 void SwapChain::createImGuiRenderPass() {
     VkAttachmentDescription attachment = {};
-    attachment.format = imageFormat;
-    attachment.samples = VK_SAMPLE_COUNT_1_BIT;
-    attachment.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-    attachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-    attachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+    attachment.format         = imageFormat;
+    attachment.samples        = VK_SAMPLE_COUNT_1_BIT;
+    attachment.loadOp         = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+    attachment.storeOp        = VK_ATTACHMENT_STORE_OP_STORE;
+    attachment.stencilLoadOp  = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
     attachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-    attachment.initialLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL; // the initial layout is the image of scene geometry
-    attachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+    attachment.initialLayout  = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL; // the initial layout is the image of scene geometry
+    attachment.finalLayout    = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 
     VkAttachmentReference color_attachment = {};
     color_attachment.attachment = 0;
-    color_attachment.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    color_attachment.layout     = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
     VkSubpassDescription subpass = {};
-    subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+    subpass.pipelineBindPoint    = VK_PIPELINE_BIND_POINT_GRAPHICS;
     subpass.colorAttachmentCount = 1;
-    subpass.pColorAttachments = &color_attachment;
+    subpass.pColorAttachments    = &color_attachment;
 
     VkSubpassDependency dependency = {};
-    dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
-    dependency.dstSubpass = 0;
-    dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-    dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    dependency.srcSubpass    = VK_SUBPASS_EXTERNAL;
+    dependency.dstSubpass    = 0;
+    dependency.srcStageMask  = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    dependency.dstStageMask  = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
     dependency.srcAccessMask = 0;
     dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
 
     VkRenderPassCreateInfo info = {};
-    info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+    info.sType           = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
     info.attachmentCount = 1;
-    info.pAttachments = &attachment;
-    info.subpassCount = 1;
-    info.pSubpasses = &subpass;
+    info.pAttachments    = &attachment;
+    info.subpassCount    = 1;
+    info.pSubpasses      = &subpass;
     info.dependencyCount = 1;
-    info.pDependencies = &dependency;
+    info.pDependencies   = &dependency;
 
     if (vkCreateRenderPass(vkSetup->device, &info, nullptr, &imGuiRenderPass) != VK_SUCCESS) {
         throw std::runtime_error("Could not create Dear ImGui's render pass");
@@ -355,8 +353,8 @@ void SwapChain::createImGuiRenderPass() {
 }
 
 void SwapChain::createForwardPipeline(VkDescriptorSetLayout* descriptorSetLayout, Model* model) {
-    VkShaderModule vertShaderModule = Shader::createShaderModule(vkSetup, Shader::readFile(VERT_SHADER));
-    VkShaderModule fragShaderModule = Shader::createShaderModule(vkSetup, Shader::readFile(FRAG_SHADER));
+    VkShaderModule vertShaderModule = Shader::createShaderModule(vkSetup, Shader::readFile(FWD_VERT_SHADER));
+    VkShaderModule fragShaderModule = Shader::createShaderModule(vkSetup, Shader::readFile(FWD_FRAG_SHADER));
 
     auto bindingDescription    = model->getBindingDescriptions(0);
     auto attributeDescriptions = model->getAttributeDescriptions(0);
@@ -369,10 +367,10 @@ void SwapChain::createForwardPipeline(VkDescriptorSetLayout* descriptorSetLayout
         VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
     colorBlendAttachment.blendEnable = VK_FALSE;
 
-    VkPipelineShaderStageCreateInfo vertShaderStageInfo =
-        utils::initPipelineShaderStageCreateInfo(VK_SHADER_STAGE_VERTEX_BIT, vertShaderModule, "main");
-    VkPipelineShaderStageCreateInfo fragShaderStageInfo =
-        utils::initPipelineShaderStageCreateInfo(VK_SHADER_STAGE_FRAGMENT_BIT, fragShaderModule, "main");
+    std::array<VkPipelineShaderStageCreateInfo, 2> shaderStages = {
+        utils::initPipelineShaderStageCreateInfo(VK_SHADER_STAGE_VERTEX_BIT, vertShaderModule, "main"),
+        utils::initPipelineShaderStageCreateInfo(VK_SHADER_STAGE_FRAGMENT_BIT, fragShaderModule, "main")
+    };
     VkPipelineVertexInputStateCreateInfo vertexInputInfo = 
         utils::initPipelineVertexInputStateCreateInfo(1, &bindingDescription, 
             static_cast<uint32_t>(attributeDescriptions.size()), attributeDescriptions.data());
@@ -395,15 +393,8 @@ void SwapChain::createForwardPipeline(VkDescriptorSetLayout* descriptorSetLayout
         throw std::runtime_error("failed to create pipeline layout!");
     }
 
-    VkPipelineShaderStageCreateInfo shaderStages[] = { vertShaderStageInfo, fragShaderStageInfo };
+    VkGraphicsPipelineCreateInfo pipelineInfo = utils::initGraphicsPipelineCreateInfo(pipelineLayout, renderPass);
 
-    VkGraphicsPipelineCreateInfo pipelineInfo{};
-    pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
-    pipelineInfo.layout              = pipelineLayout;
-    pipelineInfo.renderPass          = renderPass;
-    pipelineInfo.subpass             = 0;
-    pipelineInfo.stageCount          = 2;
-    pipelineInfo.pStages             = shaderStages;
     // fixed function pipeline
     pipelineInfo.pVertexInputState   = &vertexInputInfo;
     pipelineInfo.pInputAssemblyState = &inputAssembly;
@@ -412,6 +403,8 @@ void SwapChain::createForwardPipeline(VkDescriptorSetLayout* descriptorSetLayout
     pipelineInfo.pMultisampleState   = &multisampling;
     pipelineInfo.pColorBlendState    = &colorBlending;
     pipelineInfo.pDepthStencilState  = &depthStencil;
+    pipelineInfo.stageCount          = static_cast<uint32_t>(shaderStages.size());
+    pipelineInfo.pStages             = shaderStages.data();
 
     if (vkCreateGraphicsPipelines(vkSetup->device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &pipeline) != VK_SUCCESS) {
         throw std::runtime_error("failed to create graphics pipeline!");
@@ -419,14 +412,4 @@ void SwapChain::createForwardPipeline(VkDescriptorSetLayout* descriptorSetLayout
 
     vkDestroyShaderModule(vkSetup->device, fragShaderModule, nullptr);
     vkDestroyShaderModule(vkSetup->device, vertShaderModule, nullptr);
-}
-
-void SwapChain::createDeferredPipeline() {
-    VkPipelineInputAssemblyStateCreateInfo inputAssemblyState{};
-    inputAssemblyState.sType                  = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
-    inputAssemblyState.primitiveRestartEnable = VK_FALSE;
-}
-
-void SwapChain::createCompositionPipeline() {
-
 }

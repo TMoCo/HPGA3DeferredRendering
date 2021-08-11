@@ -21,45 +21,62 @@
 #include <string>
 #include <type_traits>
 
+// simple light struct
+struct Light {
+	glm::vec4 pos;
+	glm::vec3 color;
+	float radius;
+};
+
 class GBuffer {
 public:
-	//-Uniform buffer struct----------------------------------------------//
-	struct UBO {
+	//-Uniform buffer structs------------------------------------------------------------------------------------//
+	struct OffScreenUbo {
 		glm::mat4 model;
 		glm::mat4 view;
-		glm::mat4 proj;
+		glm::mat4 projection;
+		glm::mat4 normal;
 	};
 
-	//-Framebuffer attachment---------------------------------------------//
+	struct CompositionUBO {
+		glm::vec4 guiData;
+		Light lights[4];
+	};
+
+	//-Framebuffer attachment------------------------------------------------------------------------------------//
 	struct Attachment {
-		VulkanImage image{};
+		VulkanImage vulkanImage{};
 		VkFormat    format    = VK_FORMAT_UNDEFINED;
 		VkImageView imageView = nullptr;
 	};
 
 public:
-	//-Initialisation and cleanup-----------------------------------------//
-	void createGBuffer(VulkanSetup* pVkSetup, SwapChain* swapChain, const VkCommandPool& cmdPool);
+	//-Initialisation and cleanup--------------------------------------------------------------------------------//
+	void createGBuffer(VulkanSetup* pVkSetup, SwapChain* swapChain, VkDescriptorSetLayout* descriptorSetLayout, 
+		Model* model, const VkCommandPool& cmdPool);
 	void cleanupGBuffer();
 
-	//-Attachment creation------------------------------------------------//
+	//-Attachment creation---------------------------------------------------------------------------------------//
 	void createAttachment(const std::string& name, VkFormat format, VkImageUsageFlagBits usage, const VkCommandPool& cmdPool);
 	
-	//-Render pass reation------------------------------------------------//
-	void createDeferredRenderPass();
+	//-Render pass creation--------------------------------------------------------------------------------------//
+	void createRenderPass();
 
-	//-Frame buffer creation----------------------------------------------//
-	void createDeferredFrameBuffer();
+	//-Frame buffer creation-------------------------------------------------------------------------------------//
+	void createFrameBuffer();
 
-	//-Colour sampler creation--------------------------------------------//
+	//-Colour sampler creation-----------------------------------------------------------------------------------//
 	void createColourSampler();
 
-	//-Uniform buffer creation and update---------------------------------//
-	void createUniformBuffer();
-	void updateUniformBuffer(const UBO& ubo);
+	//-Deferred rendering pipeline-------------------------------------------------------------------------------//
+	void createPipelines(VkDescriptorSetLayout* descriptorSetLayout, SwapChain* swapChain, Model* model);
+
+	//-Uniform buffer update-------------------------------------------------------------------------------------//
+	void updateOffScreenUniformBuffer(const OffScreenUbo& ubo);
+	void updateCompositionUniformBuffer(uint32_t imageIndex, const CompositionUBO& ubo);
 
 public:
-	//-Members------------------------------------------------------------//
+	//-Members---------------------------------------------------------------------------------------------------//
 	VulkanSetup* vkSetup;
 
 	VkExtent2D extent;
@@ -70,9 +87,15 @@ public:
 
 	VkSampler colourSampler;
 
-	VulkanBuffer uniformBuffer;
+	VulkanBuffer offScreenUniform;
+	VulkanBuffer compositionUniforms;
 
 	std::map<std::string, Attachment> attachments;
+
+	VkPipelineLayout layout;
+	VkPipeline deferredPipeline;
+	VkPipeline offScreenPipeline;
+	VkPipeline skyboxPipeline;
 };
 
 

@@ -31,23 +31,24 @@
 
 class VulkanSetup {
 public:
-    //-----------------------------------------------------//
+    //-----------------------------------------------------------------------------------------------------------//
     struct SwapChainSupportDetails {
         VkSurfaceCapabilitiesKHR        capabilities;
         std::vector<VkSurfaceFormatKHR> formats;
         std::vector<VkPresentModeKHR>   presentModes;
     };
+
 public:
-    //-Initialisation and cleanup-----------------------------------------//
+    //-Initialisation and cleanup--------------------------------------------------------------------------------//
     void initSetup(GLFWwindow* window);
     void cleanupSetup();
 
 private:
-    //-Vulkan instance----------------------------------------------------//
+    //-Vulkan instance-------------------------------------------------------------------------------------------//
 	void createInstance();	
 	std::vector<const char*> getRequiredExtensions(); // extensions required for instance
 
-    //-Validation layers--------------------------------------------------//
+    //-Validation layers-----------------------------------------------------------------------------------------//
     void setupDebugMessenger();
     static VkResult CreateDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo,
             const VkAllocationCallbacks* pAllocator, VkDebugUtilsMessengerEXT* pDebugMessenger);
@@ -58,10 +59,10 @@ private:
     void populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo);
     bool checkValidationLayerSupport();
     
-    //-Vulkan surface (window)-------------------------------------------//
+    //-Vulkan surface (window)-----------------------------------------------------------------------------------//
     void createSurface();
     
-    //-Vulkan devices----------------------------------------------------//
+    //-Vulkan devices--------------------------------------------------------------------------------------------//
     void pickPhysicalDevice();
     bool isDeviceSuitable(VkPhysicalDevice device);
     SwapChainSupportDetails querySwapChainSupport(VkPhysicalDevice device);
@@ -69,7 +70,7 @@ private:
     void createLogicalDevice();
 
 public:
-    //-Members-----------------------------------------------------------//
+    //-Members---------------------------------------------------------------------------------------------------//
     GLFWwindow* window;
 
 	VkInstance instance;
@@ -82,6 +83,7 @@ public:
     VkDevice         device;
     VkQueue          graphicsQueue;
     VkQueue          presentQueue;
+    VkPhysicalDeviceProperties deviceProperties;
 
     bool setupComplete = false;
 };

@@ -237,8 +237,6 @@ uint32_t Model::getImageBitDepth(uint32_t imgIdx) {
 }
 
 VkVertexInputBindingDescription Model::getBindingDescriptions(uint32_t primitiveNum) {
-    auto& attributes = model.meshes[0].primitives[primitiveNum].attributes;
-
     VkVertexInputBindingDescription bindingDescription{};
     bindingDescription.binding   = primitiveNum; // for now 1 primitive = 1 buffer
     bindingDescription.stride    = sizeof(Vertex);
@@ -281,7 +279,7 @@ std::array<VkVertexInputAttributeDescription, 4> Model::getAttributeDescriptions
         // use attrib num in map as index in array
         attributeDescriptions[attrib.second - 1].binding  = primitiveNum;
         attributeDescriptions[attrib.second - 1].location = location;
-        attributeDescriptions[attrib.second - 1].format   = getFormatFromType(size); // returns the right format for approptiate type (size of vec)
+        attributeDescriptions[attrib.second - 1].format   = getFormatFromType(size); // returns the right format for appropriate type (size of vec)
         attributeDescriptions[attrib.second - 1].offset   = offset;
     }
 
@@ -295,8 +293,10 @@ const std::vector<Model::Vertex>* Model::getVertexBuffer(uint32_t primitiveNum) 
 
     // map from attribute index to buffer offset (assumes order: pos, norm, tan, tex)
     std::map<int, size_t> attributeOffsets;
-    for (auto& attribute : model.meshes[0].primitives[primitiveNum].attributes)
+    for (auto& attribute : model.meshes[0].primitives[primitiveNum].attributes) {
+        
         attributeOffsets.insert({ attribute.second - 1, model.bufferViews[attribute.second].byteOffset });
+    }
 
     tinygltf::Buffer buffer = model.buffers[0];
 

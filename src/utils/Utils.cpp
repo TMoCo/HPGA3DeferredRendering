@@ -119,6 +119,7 @@ namespace utils {
         return format == VK_FORMAT_D32_SFLOAT_S8_UINT || format == VK_FORMAT_D24_UNORM_S8_UINT; 
     }
 
+    // pipeline structs
     VkPipelineInputAssemblyStateCreateInfo initPipelineInputAssemblyStateCreateInfo(
         VkPrimitiveTopology topology, 
         VkBool32 restartEnabled,
@@ -146,7 +147,6 @@ namespace utils {
         info.flags       = flags;
         return info;
     }
-
 
     VkPipelineColorBlendStateCreateInfo initPipelineColorBlendStateCreateInfo(
         uint32_t attachmentCount,
@@ -210,6 +210,68 @@ namespace utils {
         return info;
     }
 
+    VkPipelineVertexInputStateCreateInfo initPipelineVertexInputStateCreateInfo(
+        uint32_t bindingCount,
+        VkVertexInputBindingDescription* pVertexBindingDescriptions,
+        uint32_t attributesCount,
+        VkVertexInputAttributeDescription* pVertexAttributesDescriptions,
+        VkPipelineVertexInputStateCreateFlags flags) {
+        VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
+        vertexInputInfo.sType                           = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+        vertexInputInfo.flags                           = flags;
+        vertexInputInfo.vertexBindingDescriptionCount   = bindingCount;
+        vertexInputInfo.pVertexBindingDescriptions      = pVertexBindingDescriptions;
+        vertexInputInfo.vertexAttributeDescriptionCount = attributesCount;
+        vertexInputInfo.pVertexAttributeDescriptions    = pVertexAttributesDescriptions;
+        return vertexInputInfo;
+    }
+
+    VkPipelineShaderStageCreateInfo initPipelineShaderStageCreateInfo(
+        VkShaderStageFlagBits stage,
+        VkShaderModule& shader,
+        const char* name) {
+        VkPipelineShaderStageCreateInfo shaderStageInfo{};
+        shaderStageInfo.sType  = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+        shaderStageInfo.stage  = stage;
+        shaderStageInfo.module = shader;
+        shaderStageInfo.pName  = name;
+        return shaderStageInfo;
+    }
+
+    VkPipelineLayoutCreateInfo initPipelineLayoutCreateInfo(
+        VkDescriptorSetLayout* pSetLayouts,
+        uint32_t count) {
+        VkPipelineLayoutCreateInfo layoutInfo{};
+        layoutInfo.sType          = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+        layoutInfo.setLayoutCount = count;
+        layoutInfo.pSetLayouts    = pSetLayouts;
+        return layoutInfo;
+    }
+
+    VkGraphicsPipelineCreateInfo initGraphicsPipelineCreateInfo(
+        VkPipelineLayout layout,
+        VkRenderPass renderPass,
+        VkPipelineCreateFlags flags) {
+        VkGraphicsPipelineCreateInfo graphicsPipelineCreateInfo{};
+        graphicsPipelineCreateInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+        graphicsPipelineCreateInfo.layout = layout;
+        graphicsPipelineCreateInfo.renderPass = renderPass;
+        graphicsPipelineCreateInfo.flags = flags;
+        graphicsPipelineCreateInfo.basePipelineIndex = -1;
+        graphicsPipelineCreateInfo.basePipelineHandle = VK_NULL_HANDLE;
+        return graphicsPipelineCreateInfo;
+    }
+
+    VkPipelineColorBlendAttachmentState initPipelineColorBlendAttachmentState(
+        VkColorComponentFlags mask,
+        VkBool32 blendEnable) {
+        VkPipelineColorBlendAttachmentState blendAttachmentState{};
+        blendAttachmentState.colorWriteMask = mask;
+        blendAttachmentState.blendEnable    = blendEnable;
+        return blendAttachmentState;
+    }
+
+    // descriptor structs
     VkDescriptorSetLayoutBinding initDescriptorSetLayoutBinding(
         uint32_t binding,
         VkDescriptorType type,
@@ -264,31 +326,63 @@ namespace utils {
         return writeDescriptorSet;
     }
 
-    VkPipelineVertexInputStateCreateInfo initPipelineVertexInputStateCreateInfo(
-        uint32_t bindingCount,
-        VkVertexInputBindingDescription* pVertexBindingDescriptions,
-        uint32_t attributesCount,
-        VkVertexInputAttributeDescription* pVertexAttributesDescriptions,
-        VkPipelineVertexInputStateCreateFlags flags) {
-        VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
-        vertexInputInfo.sType                           = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-        vertexInputInfo.flags                           = flags;
-        vertexInputInfo.vertexBindingDescriptionCount   = bindingCount;
-        vertexInputInfo.pVertexBindingDescriptions      = pVertexBindingDescriptions;
-        vertexInputInfo.vertexAttributeDescriptionCount = attributesCount;
-        vertexInputInfo.pVertexAttributeDescriptions    = pVertexAttributesDescriptions;
-        return vertexInputInfo;
+    // command buffer structs
+    VkCommandBufferBeginInfo initCommandBufferBeginInfo(
+        VkCommandBufferResetFlags flags) {
+        VkCommandBufferBeginInfo commandBufferBegin{};
+        commandBufferBegin.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+        commandBufferBegin.flags = flags;
+        return commandBufferBegin;
     }
 
-    VkPipelineShaderStageCreateInfo initPipelineShaderStageCreateInfo(
-        VkShaderStageFlagBits stage,
-        VkShaderModule& shader,
-        const char* name) {
-        VkPipelineShaderStageCreateInfo shaderStageInfo{};
-        shaderStageInfo.sType  = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-        shaderStageInfo.stage  = stage;
-        shaderStageInfo.module = shader;
-        shaderStageInfo.pName  = name;
-        return shaderStageInfo;
+    // Image structs
+    VkImageViewCreateInfo initImageViewCreateInfo(VkImage image, VkImageViewType type, VkFormat format, 
+        VkComponentMapping componentMapping, VkImageSubresourceRange subresourceRange) {
+        VkImageViewCreateInfo viewCreateInfo{};
+        viewCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+        viewCreateInfo.image = image;
+        viewCreateInfo.viewType = type; // image as 1/2/3D textures and cube maps
+        viewCreateInfo.format = format;
+        viewCreateInfo.components = componentMapping;
+        viewCreateInfo.subresourceRange = subresourceRange;
+        return viewCreateInfo;
+    }
+
+    VkSamplerCreateInfo initSamplerCreateInfo(float maxAnisotropy) {
+        VkSamplerCreateInfo samplerCreateInfo{};
+        samplerCreateInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+
+        // how to interpolate texels that are magnified or minified
+        samplerCreateInfo.magFilter = VK_FILTER_LINEAR;
+        samplerCreateInfo.minFilter = VK_FILTER_LINEAR;
+        // addressing mode
+        samplerCreateInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+        samplerCreateInfo.addressModeV = samplerCreateInfo.addressModeU;
+        samplerCreateInfo.addressModeW = samplerCreateInfo.addressModeW;
+        // VK_SAMPLER_ADDRESS_MODE_REPEAT: Repeat the texture when going beyond the image dimensions.
+        // VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT: Like repeat, but inverts the coordinates to mirror the image when going beyond the dimensions.
+        // VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE : Take the color of the edge closest to the coordinate beyond the image dimensions.
+        // VK_SAMPLER_ADDRESS_MODE_MIRROR_CLAMP_TO_EDGE : Like clamp to edge, but instead uses the edge opposite to the closest edge.
+        // VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER : Return a solid color when sampling beyond the dimensions of the image
+
+        // use unless performance is a concern
+        samplerCreateInfo.anisotropyEnable = VK_TRUE;
+        // limits texel samples that used to calculate final colours
+        samplerCreateInfo.maxAnisotropy = maxAnisotropy;
+        samplerCreateInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
+        // which coordinate system we want to use to address texels!
+        samplerCreateInfo.unnormalizedCoordinates = VK_FALSE;
+
+        // if comparison enabled, texels will be compared to a value and result is used in filtering (useful for shadow maps)
+        samplerCreateInfo.compareEnable = VK_FALSE;
+        samplerCreateInfo.compareOp = VK_COMPARE_OP_ALWAYS;
+
+        // mipmapping fields
+        samplerCreateInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+        samplerCreateInfo.mipLodBias = 0.0f;
+        samplerCreateInfo.minLod = 0.0f;
+        samplerCreateInfo.maxLod = 0.0f;
+
+        return samplerCreateInfo;
     }
 }

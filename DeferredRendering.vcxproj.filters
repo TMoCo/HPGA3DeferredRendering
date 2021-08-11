@@ -81,11 +81,11 @@
     <ClCompile Include="src\main.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="src\hpg\Skybox.cpp">
+      <Filter>Source Files\hpg</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="include\utils\Utils.h">
-      <Filter>Header Files\utils</Filter>
-    </ClInclude>
     <ClInclude Include="include\app\Application.h">
       <Filter>Header Files\app</Filter>
     </ClInclude>
@@ -131,12 +131,39 @@
     <ClInclude Include="include\hpg\SwapChain.h">
       <Filter>Header Files\hpg</Filter>
     </ClInclude>
+    <ClInclude Include="include\utils\Print.h">
+      <Filter>Header Files\utils</Filter>
+    </ClInclude>
+    <ClInclude Include="include\utils\Utils.h">
+      <Filter>Header Files\utils</Filter>
+    </ClInclude>
+    <ClInclude Include="include\hpg\Skybox.h">
+      <Filter>Header Files\hpg</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <None Include="src\shaders\base.vert">
+    <None Include="src\shaders\deferred.frag">
       <Filter>Source Files\shaders</Filter>
     </None>
-    <None Include="src\shaders\phong.frag">
+    <None Include="src\shaders\deferred.vert">
+      <Filter>Source Files\shaders</Filter>
+    </None>
+    <None Include="src\shaders\forward.frag">
+      <Filter>Source Files\shaders</Filter>
+    </None>
+    <None Include="src\shaders\forward.vert">
+      <Filter>Source Files\shaders</Filter>
+    </None>
+    <None Include="src\shaders\offscreen.frag">
+      <Filter>Source Files\shaders</Filter>
+    </None>
+    <None Include="src\shaders\offscreen.vert">
+      <Filter>Source Files\shaders</Filter>
+    </None>
+    <None Include="src\shaders\skybox.vert">
+      <Filter>Source Files\shaders</Filter>
+    </None>
+    <None Include="src\shaders\skybox.frag">
       <Filter>Source Files\shaders</Filter>
     </None>
   </ItemGroup>

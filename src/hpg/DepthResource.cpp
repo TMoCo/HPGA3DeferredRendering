@@ -20,7 +20,7 @@ void DepthResource::createDepthResource(VulkanSetup* pVkSetup, const VkExtent2D&
     VkFormat depthFormat = findDepthFormat(vkSetup); // find a depth format
 
     // we have the information needed to create an image (the format, usage etc) and an image view
-    VulkanImage::CreateInfo info{};
+    VulkanImage::ImageCreateInfo info{};
     info.width        = extent.width;
     info.height       = extent.height;
     info.format       = depthFormat;
@@ -31,7 +31,9 @@ void DepthResource::createDepthResource(VulkanSetup* pVkSetup, const VkExtent2D&
 
     VulkanImage::createImage(vkSetup, commandPool, info);
 
-    depthImageView = VulkanImage::createImageView(vkSetup, &depthImage, depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT);
+    VkImageViewCreateInfo imageViewCreateInfo = utils::initImageViewCreateInfo(depthImage.image,
+        VK_IMAGE_VIEW_TYPE_2D, depthFormat, {}, { VK_IMAGE_ASPECT_DEPTH_BIT, 0, 1, 0, 1 });
+    depthImageView = VulkanImage::createImageView(vkSetup, imageViewCreateInfo);
 
     VulkanImage::LayoutTransitionInfo transitionData{};
     transitionData.pVulkanImage      = &depthImage;

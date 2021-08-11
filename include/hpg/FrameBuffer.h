@@ -1,13 +1,13 @@
 ///////////////////////////////////////////////////////
-// FrameBufferData class declaration
+// FrameBuffer class declaration
 ///////////////////////////////////////////////////////
 
 //
 // A class that contains the data related to a frame buffer.
 //
 
-#ifndef FRAMEBUFFER_DATA_H
-#define FRAMEBUFFER_DATA_H
+#ifndef FRAME_BUFFER_H
+#define FRAME_BUFFER_H
 
 #include <hpg/VulkanSetup.h> // for referencing the device
 #include <hpg/DepthResource.h> // for referencing the depth resource
@@ -15,11 +15,11 @@
 
 #include <vulkan/vulkan_core.h>
 
-class FramebufferData {
+class FrameBuffer {
 public:
     //-Initialisation and cleanup-----------------------------------------//    
-    void initFramebufferData(VulkanSetup* pVkSetup, const SwapChain* swapChain, const VkCommandPool& commandPool);
-    void cleanupFrambufferData();
+    void initFrameBuffer(VulkanSetup* pVkSetup, const SwapChain* swapChain, const VkCommandPool& commandPool);
+    void cleanupFramBuffer();
 
 private:
     //-Framebuffer creation-----------------------------------------------//    

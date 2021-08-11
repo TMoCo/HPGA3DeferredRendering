@@ -22,32 +22,29 @@
 
 class SwapChain {
 public:
-    //-Initialisation and cleanup----------------------------------------//    
+    //-Initialisation and cleanup--------------------------------------------------------------------------------//    
     void initSwapChain(VulkanSetup* pVkSetup, Model* model, VkDescriptorSetLayout* descriptorSetLayout);
     void cleanupSwapChain();
 
 private:
-    //-Swap chain creation helpers---------------------------------------//    
+    //-Swap chain creation helpers-------------------------------------------------------------------------------//    
     void createSwapChain();
     VulkanSetup::SwapChainSupportDetails querySwapChainSupport();
     VkSurfaceFormatKHR chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats);
     VkPresentModeKHR chooseSwapPresentMode(const std::vector<VkPresentModeKHR>& availablePresentModes);
     VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities);
 
-    //-Swap chain image views--------------------------------------------//    
-    void createSwapChainImageViews();
-
-    //-Render passes-----------------------------------------------------//    
+    //-Render passes---------------------------------------------------------------------------------------------//    
     void createRenderPass();
     void createImGuiRenderPass();
     
-    //-Pipelines---------------------------------------------------------//    
+    //-Pipelines-------------------------------------------------------------------------------------------------//  
     void createForwardPipeline(VkDescriptorSetLayout* descriptorSetLayout, Model* model);
     void createDeferredPipeline();
     void createCompositionPipeline();
 
 public:
-    //-Members-----------------------------------------------------------//    
+    //-Members---------------------------------------------------------------------------------------------------//    
     VulkanSetup* vkSetup;
 
     VkSwapchainKHR           swapChain;

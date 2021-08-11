@@ -15,11 +15,12 @@
 #include <common/Camera.h> // the camera struct
 
 // classes for vulkan
-#include <hpg/VulkanSetup.h> // include the vulkan setup class
-#include <hpg/SwapChain.h> // the swap chain class
-#include <hpg/FramebufferData.h> // the framebuffer data class
+#include <hpg/VulkanSetup.h>
+#include <hpg/SwapChain.h>
+#include <hpg/FrameBuffer.h>
 #include <hpg/GBuffer.h>
-#include <hpg/Buffers.h> // the buffer class
+#include <hpg/Buffers.h>
+#include <hpg/Skybox.h>
 
 // glfw window library
 #define GLFW_INCLUDE_VULKAN
@@ -41,83 +42,88 @@ public:
     void run();
 
 private:
-    //-Initialise all our data for rendering------------------------------//
+    //-Initialise all our data for rendering---------------------------------------------------------------------//
     void initVulkan();
     void recreateVulkanData();
 
-    //-Initialise Imgui data----------------------------------------------//
+    //-Initialise Imgui data-------------------------------------------------------------------------------------//
     void initImGui();
     void uploadFonts();
 
-    //-Initialise GLFW window---------------------------------------------//
+    //-Initialise GLFW window------------------------------------------------------------------------------------//
     void initWindow();
 
-    //-Descriptor initialisation functions--------------------------------//
+    //-Descriptor initialisation functions-----------------------------------------------------------------------//
     void createDescriptorSetLayout();
     void createDescriptorPool();
     void createDescriptorSets();
 
-    //-Update uniform buffer----------------------------------------------//
+    //-Update uniform buffer-------------------------------------------------------------------------------------//
     void updateUniformBuffers(uint32_t currentImage);
 
-    //-Extract buffers from wrappers--------------------------------------//
-    std::vector<VkBuffer> unwrapVkBuffers(const std::vector<VulkanBuffer>& vkBuffers);
-
-    //-Command buffer initialisation functions----------------------------//
+    //-Command buffer initialisation functions-------------------------------------------------------------------//
     void createCommandPool(VkCommandPool* commandPool, VkCommandPoolCreateFlags flags);
-    void createCommandBuffers(std::vector<VkCommandBuffer>* commandBuffers, VkCommandPool& commandPool);
+    void createCommandBuffers(uint32_t count, VkCommandBuffer* commandBuffers, VkCommandPool& commandPool);
 
-    //-Record command buffers for rendering (geom and gui)----------------//
-    void recordGeometryCommandBuffer(size_t cmdBufferIndex);
-    void recordGuiCommandBuffer(size_t cmdBufferIndex);
+    //-Record command buffers for rendering (geom and gui)-------------------------------------------------------//
+    void buildCompositionCommandBuffer(size_t cmdBufferIndex);
+    void buildGuiCommandBuffer(size_t cmdBufferIndex);
+    void buildOffscreenCommandBuffer(size_t cmdBufferIndex);
 
-    //-Window/Input Callbacks---------------------------------------------//
+    //-Window/Input Callbacks------------------------------------------------------------------------------------//
     static void framebufferResizeCallback(GLFWwindow* window, int width, int height);
 
-    //-Sync structures----------------------------------------------------//
+    //-Sync structures-------------------------------------------------------------------------------------------//
     void createSyncObjects();
 
-    //-The main loop------------------------------------------------------//
+    //-The main loop---------------------------------------------------------------------------------------------//
     void mainLoop();
 
-    //-Per frame functions------------------------------------------------//
+    //-Per frame functions---------------------------------------------------------------------------------------//
     void drawFrame();
     void setGUI();
     int processKeyInput();
     void processMouseInput(glm::dvec2& offset);
 
-    //-End of application cleanup-----------------------------------------//
+    //-End of application cleanup--------------------------------------------------------------------------------//
     void cleanup();
 
 private:
-    //-Members------------------------------------------------------------//
+    //-Members---------------------------------------------------------------------------------------------------//
     GLFWwindow* window;
 
-    VulkanSetup     vkSetup; // instance, device (logical, physical), ...
-    SwapChain   swapChain; // sc images, pipelines, ...
-    FramebufferData framebufferData;
+    VulkanSetup vkSetup; // instance, device (logical, physical), ...
+    SwapChain swapChain; // sc images, pipelines, ...
+    FrameBuffer frameBuffer;
     GBuffer gBuffer;
 
     Model model;
 
-    VulkanBuffer uniforms;
+    Skybox skybox;
+
     VulkanBuffer vertexBuffer;
     VulkanBuffer indexBuffer;
-
     std::vector<Texture> textures;
+
+    Light lights[4];
 
     Camera camera;
 
     VkDescriptorPool descriptorPool;
     VkDescriptorSetLayout descriptorSetLayout;
-    std::vector<VkDescriptorSet> descriptorSets; // descriptor set handles
+    // descriptor set handles
+    std::vector<VkDescriptorSet> compositionDescriptorSets; 
+    VkDescriptorSet offScreenDescriptorSet;
+    VkDescriptorSet skyboxDescriptorSet;
 
     VkCommandPool renderCommandPool;
+    std::vector<VkCommandBuffer> offScreenCommandBuffers;
     std::vector<VkCommandBuffer> renderCommandBuffers;
 
     VkCommandPool imGuiCommandPool;
     std::vector<VkCommandBuffer> imGuiCommandBuffers;
 
+    std::vector<VkSemaphore> offScreenSemaphores;
     std::vector<VkSemaphore> imageAvailableSemaphores; // 1 semaphore per frame, GPU-GPU sync
     std::vector<VkSemaphore> renderFinishedSemaphores;
 
@@ -132,10 +138,13 @@ private:
     bool framebufferResized = false;
     bool firstMouse         = true;
 
+    int attachmentNum = 0;
+
     glm::dvec2 prevMouse;
     glm::dvec2 currMouse;
 
     std::chrono::steady_clock::time_point prevTime;
+    std::chrono::steady_clock::time_point currTime;
     float deltaTime;
 
     size_t currentFrame = 0;

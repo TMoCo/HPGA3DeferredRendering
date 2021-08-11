@@ -28,16 +28,43 @@ const std::string ENGINE_NAME = "No Engine";
 // max size for reading a line 
 const std::streamsize MAX_SIZE = 1048;
 
-// world axes
-const glm::vec3 WORLD_RIGHT = glm::vec3(-1.0f, 0.0f, 0.0f);
-const glm::vec3 WORLD_UP = glm::vec3(0.0f, 1.0f, 0.0f);
-const glm::vec3 WORLD_FRONT = glm::vec3(0.0f, 0.0f, -1.0f);
-
 // paths to the model
 const std::string MODEL_PATH = "C:\\Users\\Tommy\\Documents\\COMP4\\5822HighPerformanceGraphics\\A3\\Assets\\SuzanneGltf\\Suzanne.gltf";
 
-// vertex shaders
-const std::string VERT_SHADER = "C:\\Users\\Tommy\\Documents\\COMP4\\5822HighPerformanceGraphics\\A3\\DeferredRendering\\src\\shaders\\offscreen.vert.spv";
-const std::string FRAG_SHADER = "C:\\Users\\Tommy\\Documents\\COMP4\\5822HighPerformanceGraphics\\A3\\DeferredRendering\\src\\shaders\\offscreen.frag.spv";
+// path to the skybox
+const std::string SKYBOX_PATH = "C:\\Users\\Tommy\\Documents\\Graphics\\CubeMaps\\sky\\";
+
+// forward rendering shader paths
+const std::string FWD_VERT_SHADER = "C:\\Users\\Tommy\\Documents\\COMP4\\5822HighPerformanceGraphics\\A3\\DeferredRendering\\src\\shaders\\forward.vert.spv";
+const std::string FWD_FRAG_SHADER = "C:\\Users\\Tommy\\Documents\\COMP4\\5822HighPerformanceGraphics\\A3\\DeferredRendering\\src\\shaders\\forward.frag.spv";
+
+// deferred rendering shader paths (offscreen, composition, skybox)
+const std::string OFF_VERT_SHADER = "C:\\Users\\Tommy\\Documents\\COMP4\\5822HighPerformanceGraphics\\A3\\DeferredRendering\\src\\shaders\\offscreen.vert.spv";
+const std::string OFF_FRAG_SHADER = "C:\\Users\\Tommy\\Documents\\COMP4\\5822HighPerformanceGraphics\\A3\\DeferredRendering\\src\\shaders\\offscreen.frag.spv";
+
+const std::string DEF_VERT_SHADER = "C:\\Users\\Tommy\\Documents\\COMP4\\5822HighPerformanceGraphics\\A3\\DeferredRendering\\src\\shaders\\deferred.vert.spv";
+const std::string DEF_FRAG_SHADER = "C:\\Users\\Tommy\\Documents\\COMP4\\5822HighPerformanceGraphics\\A3\\DeferredRendering\\src\\shaders\\deferred.frag.spv";
+
+const std::string SKY_VERT_SHADER = "C:\\Users\\Tommy\\Documents\\COMP4\\5822HighPerformanceGraphics\\A3\\DeferredRendering\\src\\shaders\\skybox.vert.spv";
+const std::string SKY_FRAG_SHADER = "C:\\Users\\Tommy\\Documents\\COMP4\\5822HighPerformanceGraphics\\A3\\DeferredRendering\\src\\shaders\\skybox.frag.spv";
+
+namespace Axes {
+	// world axes
+	const glm::vec3 WORLD_RIGHT = glm::vec3(-1.0f, 0.0f, 0.0f);
+	const glm::vec3 WORLD_UP = glm::vec3(0.0f, 1.0f, 0.0f);
+	const glm::vec3 WORLD_FRONT = glm::vec3(0.0f, 0.0f, -1.0f);
+
+	const glm::vec3 X = glm::vec3(1.0f, 0.0f, 0.0f);
+	const glm::vec3 Y = glm::vec3(0.0f, 1.0f, 0.0f);
+	const glm::vec3 Z = glm::vec3(0.0f, 0.0f, 1.0f);
+
+	// default directions
+	const glm::vec3 RIGHT = glm::vec3(1.0f, 0.0f, 0.0f);
+	const glm::vec3 LEFT = glm::vec3(-1.0f, 0.0f, 0.0f);
+	const glm::vec3 UP = glm::vec3(0.0f, 1.0f, 0.0f);
+	const glm::vec3 DOWN = glm::vec3(0.0f, -1.0f, 0.0f);
+	const glm::vec3 FRONT = glm::vec3(0.0f, 0.0f, -1.0f);
+	const glm::vec3 BACK = glm::vec3(0.0f, 0.0f, 1.0f);
+}
 
 #endif // !APP_CONSTANTS_H

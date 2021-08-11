@@ -22,8 +22,7 @@
 #include <glm/glm.hpp>
 
 
-/* ********************************************** Debug Copy Paste **********************************************
-
+/* ********************************************** Debug Copy Paste ************************************************
 #ifndef NDEBUG
     std::cout << "DEBUG\t" << __FUNCTION__ << '\n';
     std::cout << v << '\n';
@@ -32,7 +31,7 @@
 
     }
 #endif
-    *****************************************************************************************************************/
+* ****************************************************************************************************************/
 
 #ifndef NDEBUG
 const bool enableValidationLayers = true;
@@ -47,6 +46,9 @@ const bool enableVerboseValidation = true;
 const bool enableVerboseValidation = false;
 #endif
 
+#define SizeofArray(arr)          ((size_t)(sizeof(arr) / sizeof(*(arr))))
+
+
 const size_t N_DESCRIPTOR_LAYOUTS = 2;
 
 const std::vector<const char*> validationLayers = { "VK_LAYER_KHRONOS_validation" };
@@ -60,7 +62,7 @@ const uint32_t IMGUI_POOL_NUM = 1000;
 
 namespace utils {
 
-    //-Command queue family info -----------------------------------------//
+    //-Command queue family info --------------------------------------------------------------------------------//
     struct QueueFamilyIndices {
         std::optional<uint32_t> graphicsFamily; // queue supporting drawing commands
         std::optional<uint32_t> presentFamily; // queue for presenting image to vk surface 
@@ -73,23 +75,25 @@ namespace utils {
         static QueueFamilyIndices findQueueFamilies(VkPhysicalDevice device, VkSurfaceKHR surface);
     };
 
-    //-Type conversion----------------------------------------------------//
+    //-Type conversion-------------------------------------------------------------------------------------------//
     glm::vec2* toVec2(float* pVec);
     glm::vec3* toVec3(float* pVec);
     glm::vec4* toVec4(float* pVec);
 
-    //-Memory type--------------------------------------------------------//
+    //-Memory type-----------------------------------------------------------------------------------------------//
     uint32_t findMemoryType(const VkPhysicalDevice* physicalDevice, uint32_t typeFilter, VkMemoryPropertyFlags properties);
 
-    //-Begin & end single use cmds----------------------------------------//
+    //-Begin & end single use cmds-------------------------------------------------------------------------------//
     VkCommandBuffer beginSingleTimeCommands(const VkDevice* device, const VkCommandPool& commandPool);
     void endSingleTimeCommands(const VkDevice* device, const VkQueue* queue, const VkCommandBuffer* commandBuffer, const VkCommandPool* commandPool);
 
-    //-Texture operation info structs-------------------------------------//
+    //-Texture operation info structs----------------------------------------------------------------------------//
     bool hasStencilComponent(VkFormat format);
 
-    //-Vulkan struct initialisation---------------------------------------//
-    // taken from: https://github.com/SaschaWillems/Vulkan/blob/master/base/VulkanInitializers.hpp
+    //-Vulkan struct initialisation------------------------------------------------------------------------------//
+    // heavily inspired from: https://github.com/SaschaWillems/Vulkan/blob/master/base/VulkanInitializers.hpp
+
+    // Pipeline structs
     VkPipelineVertexInputStateCreateInfo initPipelineVertexInputStateCreateInfo(
         uint32_t bindingCount,
         VkVertexInputBindingDescription* pVertexBindingDescriptions,
@@ -139,6 +143,20 @@ namespace utils {
         VkDescriptorSetLayout* layouts,
         VkPipelineLayoutCreateFlags flags = 0);
 
+    VkPipelineLayoutCreateInfo initPipelineLayoutCreateInfo(
+        VkDescriptorSetLayout* pSetLayouts,
+        uint32_t count);
+
+    VkGraphicsPipelineCreateInfo initGraphicsPipelineCreateInfo(
+        VkPipelineLayout layout,
+        VkRenderPass renderPass,
+        VkPipelineCreateFlags flags = 0);
+
+    VkPipelineColorBlendAttachmentState initPipelineColorBlendAttachmentState(
+        VkColorComponentFlags mask,
+        VkBool32 blendEnable);
+
+    // Descriptor set structs
     VkDescriptorSetLayoutBinding initDescriptorSetLayoutBinding(
         uint32_t binding,
         VkDescriptorType type,
@@ -160,7 +178,16 @@ namespace utils {
         uint32_t binding,
         VkDescriptorType type,
         VkDescriptorImageInfo* pImageInfo);
-    
+
+    // Command buffer structs
+    VkCommandBufferBeginInfo initCommandBufferBeginInfo(
+        VkCommandBufferResetFlags flags = 0);
+
+    // Image structs
+    VkImageViewCreateInfo initImageViewCreateInfo(VkImage image, VkImageViewType type, VkFormat format,
+        VkComponentMapping componentMapping, VkImageSubresourceRange subresourceRange);
+
+    VkSamplerCreateInfo initSamplerCreateInfo(float maxAnisotropy = 1.0f);
 }
 
 #endif // !UTILS_H

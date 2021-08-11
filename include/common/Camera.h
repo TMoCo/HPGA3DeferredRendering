@@ -35,36 +35,28 @@ enum class CameraMovement : unsigned char {
 
 class Camera {
 public: 
-	//-Camera constructor-------------------------------------------------//
-	Camera(glm::vec3 initPos = glm::vec3(0.0f), float initAngleSpeed = 20.0f, float initPosSpeed = 0.0f) 
-		: position(initPos), angleChangeSpeed(initAngleSpeed), positionChangeSpeed(initPosSpeed) {
-		pitch = yaw = roll = 0.0f; // start with no rotation to the camera
-		updateCamera();
-	}
+	//-Camera constructor----------------------------------------------------------------------------------------//
+	Camera(glm::vec3 initPos = glm::vec3(0.0f), float initAngleSpeed = 0.0f, float initPosSpeed = 0.0f) 
+		: position(initPos), angleChangeSpeed(initAngleSpeed), positionChangeSpeed(initPosSpeed) {}
 
 public:
-	//-Usefult getters---------------------------------------------------//
+	//-Usefult getters-------------------------------------------------------------------------------------------//
 	glm::mat4 getViewMatrix();
 	glm::mat4 getViewMatrix(const glm::vec3& pos);
 	Orientation getOrientation();
 
-	//-Input ------------------------------------------------------------//
+	//-Input-----------------------------------------------------------------------------------------------------//
 	void processInput(CameraMovement camMove, float deltaTime); // just keyborad input
-	void setDirection(const glm::vec3& viewDir);
 
 private:
-	//-Update orientation------------------------------------------------//
+	//-Update orientation----------------------------------------------------------------------------------------//
 	void updateCamera();
 
 public:
-	//-Members----------------------------------------------------------//
+	//-Members---------------------------------------------------------------------------------------------------//
 	glm::vec3 position;
 
 	Orientation orientation;
-
-	float pitch;
-	float roll;
-	float yaw;
 
 	float angleChangeSpeed;
 	float positionChangeSpeed;

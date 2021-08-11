@@ -29,16 +29,16 @@ void Texture::createTexture(VulkanSetup* pVkSetup, const VkCommandPool& commandP
     vkUnmapMemory(vkSetup->device, stagingBuffer.memory);
 
     // create the image and its memory
-    VulkanImage::CreateInfo imgCreateinfo{};
-    imgCreateinfo.width        = image.width;
-    imgCreateinfo.height       = image.height;
-    imgCreateinfo.format       = image.format;
-    imgCreateinfo.tiling       = VK_IMAGE_TILING_OPTIMAL;
-    imgCreateinfo.usage        = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
-    imgCreateinfo.properties   = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
-    imgCreateinfo.pVulkanImage = &textureImage;
+    VulkanImage::ImageCreateInfo imgCreateInfo{};
+    imgCreateInfo.width = image.width;
+    imgCreateInfo.height = image.height;
+    imgCreateInfo.format = image.format;
+    imgCreateInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+    imgCreateInfo.usage = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+    imgCreateInfo.properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+    imgCreateInfo.pVulkanImage = &textureImage;
 
-    VulkanImage::createImage(vkSetup, commandPool, imgCreateinfo);
+    VulkanImage::createImage(vkSetup, commandPool, imgCreateInfo);
 
     // copy host data to device
     VulkanImage::LayoutTransitionInfo transitionData{};
@@ -50,7 +50,12 @@ void Texture::createTexture(VulkanSetup* pVkSetup, const VkCommandPool& commandP
 
     VulkanImage::transitionImageLayout(vkSetup, transitionData); // specify the initial layout VK_IMAGE_LAYOUT_UNDEFINED
 
-    VulkanBuffer::copyBufferToImage(vkSetup, commandPool, stagingBuffer.buffer, textureImage.image, image.width, image.height);
+    // need to specify which parts of the buffer we are going to copy to which part of the image
+    std::vector<VkBufferImageCopy> regions = {
+        { 0, 0, 0, { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 }, { 0, 0, 0 }, { image.width, image.height, 1 } }
+    };
+
+    VulkanBuffer::copyBufferToImage(vkSetup, commandPool, stagingBuffer.buffer, textureImage.image, regions);
 
     // need another transfer to give the shader access to the texture
     transitionData.pVulkanImage = &textureImage;
@@ -65,7 +70,9 @@ void Texture::createTexture(VulkanSetup* pVkSetup, const VkCommandPool& commandP
     stagingBuffer.cleanupBufferData(vkSetup->device);
 
     // then create the image view
-    textureImageView = VulkanImage::createImageView(vkSetup, &textureImage,  image.format, VK_IMAGE_ASPECT_COLOR_BIT);
+    VkImageViewCreateInfo imageViewCreateInfo = utils::initImageViewCreateInfo(textureImage.image,
+        VK_IMAGE_VIEW_TYPE_2D, image.format, {}, { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 });
+    textureImageView = VulkanImage::createImageView(vkSetup, imageViewCreateInfo);
 
     // create the sampler
     createTextureSampler();
@@ -97,17 +104,19 @@ void Texture::createTextureSampler() {
     // VK_SAMPLER_ADDRESS_MODE_MIRROR_CLAMP_TO_EDGE : Like clamp to edge, but instead uses the edge opposite to the closest edge.
     // VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER : Return a solid color when sampling beyond the dimensions of the image
 
-    samplerInfo.anisotropyEnable = VK_TRUE; // use unless performance is a concern (IT WILL BE)
-    VkPhysicalDeviceProperties properties{}; // can query these here or at beginning for reference
-    vkGetPhysicalDeviceProperties(vkSetup->physicalDevice, &properties);
-    // limites the amount of texel samples that can be used to calculate final colours, obtain from the device properties
-    samplerInfo.maxAnisotropy = properties.limits.maxSamplerAnisotropy;
-    // self ecplanatory, can't be an arbitrary colour
+    // use unless performance is a concern
+    samplerInfo.anisotropyEnable = VK_TRUE; 
+
+    // limits texel samples that used to calculate final colours
+    samplerInfo.maxAnisotropy = vkSetup->deviceProperties.limits.maxSamplerAnisotropy;
     samplerInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
-    samplerInfo.unnormalizedCoordinates = VK_FALSE; // which coordinate system we want to use to address texels! usually always normalised
+    // which coordinate system we want to use to address texels!
+    samplerInfo.unnormalizedCoordinates = VK_FALSE; 
+
     // if comparison enabled, texels will be compared to a value and result is used in filtering (useful for shadow maps)
     samplerInfo.compareEnable = VK_FALSE;
     samplerInfo.compareOp = VK_COMPARE_OP_ALWAYS;
+
     // mipmapping fields
     samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
     samplerInfo.mipLodBias = 0.0f;

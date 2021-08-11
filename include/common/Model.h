@@ -25,7 +25,7 @@
 
 class Model {
 public:
-    //-Vertex POD---------------------------------------------------------//
+    //-Vertex POD------------------------------------------------------------------------------------------------//
     struct Vertex {
         glm::vec3 pos;
         glm::vec3 nor;
@@ -34,22 +34,22 @@ public:
     };
 
 public:
-    //-Supported file formats---------------------------------------------//
+    //-Supported file formats------------------------------------------------------------------------------------//
     enum class FileExtension : unsigned char {
         OBJ  = 0x0,
         GLTF = 0x1
     };
 
 public:
-    //-Load Model---------------------------------------------------------//
+    //-Load Model------------------------------------------------------------------------------------------------//
     void loadModel(const std::string& path);
     void loadObjModel(const std::string& path);
     void loadGltfModel(const std::string& path);
 
-    //-File utils---------------------------------------------------------//
+    //-File utils------------------------------------------------------------------------------------------------//
     FileExtension getExtension(const std::string& path);
 
-    //-Get model data-----------------------------------------------------//
+    //-Get model data--------------------------------------------------------------------------------------------//
     static VkFormat getFormatFromType(uint32_t type);
     VkIndexType getIndexType(uint32_t primitiveNum);
     std::vector<VkDeviceSize> getBufferOffsets(uint32_t primitiveNum);
@@ -58,19 +58,19 @@ public:
     VkFormat getImageFormat(uint32_t imgIdx);
     uint32_t getImageBitDepth(uint32_t imgIdx);
 
-    //-Binding and attribute descriptions---------------------------------//
+    //-Binding and attribute descriptions------------------------------------------------------------------------//
     VkVertexInputBindingDescription getBindingDescriptions(uint32_t primitiveNum);
     std::array<VkVertexInputAttributeDescription, 4> getAttributeDescriptions(uint32_t primitiveNum);
 
-    //-Get buffers--------------------------------------------------------//
+    //-Get buffers-----------------------------------------------------------------------------------------------//
     const std::vector<Vertex>* getVertexBuffer(uint32_t primitiveNum);
     const std::vector<uint32_t>* getIndexBuffer(uint32_t primitiveNum);
 
-    //-Get material textures----------------------------------------------//
+    //-Get material textures-------------------------------------------------------------------------------------//
     const std::vector<Image>* getMaterialTextureData(uint32_t primitiveNum);
 
 private:
-    //-Members------------------------------------------------------------//
+    //-Members---------------------------------------------------------------------------------------------------//
     tinygltf::Model model;
 
     glm::vec3 centre;
@@ -78,10 +78,6 @@ private:
     std::vector<Vertex> vertices;
     std::vector<uint32_t> indices;
     std::vector<Image> textures;
-
-    size_t indexStride;
-
-    void* vertexBuffer;
 
     FileExtension ext;
 
