@@ -5,6 +5,8 @@
 #ifndef UTILS_H
 #define UTILS_H
 
+#include <common/types.h>
+
 #include <stdint.h> // uint32_t
 
 #include <vector> // vector container
@@ -155,6 +157,11 @@ namespace utils {
     VkPipelineColorBlendAttachmentState initPipelineColorBlendAttachmentState(
         VkColorComponentFlags mask,
         VkBool32 blendEnable);
+
+    VkPipelineDynamicStateCreateInfo initPipelineDynamicStateCreateInfo(
+        VkDynamicState* pDynamicStates,
+        uint32_t dynamicStateCount,
+        VkPipelineDynamicStateCreateFlags flags = 0);
 
     // Descriptor set structs
     VkDescriptorSetLayoutBinding initDescriptorSetLayoutBinding(

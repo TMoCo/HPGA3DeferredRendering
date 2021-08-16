@@ -70,6 +70,7 @@ public:
     static VkFormat getImageFormat(int numChannels);
     static ImageFormatSupportDetails queryFormatSupport(VkPhysicalDevice device, VkFormat format, VkImageType type, 
         VkImageTiling tiling, VkImageUsageFlags usage, VkImageCreateFlags flags);
+    static VkBool32 formatIsFilterable(VkPhysicalDevice physicalDevice, VkFormat format, VkImageTiling tiling);
 
 public:
     VkExtent2D     extent      = { 0, 0 };

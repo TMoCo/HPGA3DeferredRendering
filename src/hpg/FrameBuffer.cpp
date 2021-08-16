@@ -25,7 +25,7 @@ void FrameBuffer::initFrameBuffer(VulkanSetup* pVkSetup, const SwapChain* swapCh
     createImGuiFramebuffers(swapChainData);
 }
 
-void FrameBuffer::cleanupFramBuffer() {
+void FrameBuffer::cleanupFrameBuffers() {
     // cleanup the depth resource
     depthResource.cleanupDepthResource();
 

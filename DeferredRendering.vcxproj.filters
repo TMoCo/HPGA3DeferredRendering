@@ -40,15 +40,18 @@
     <Filter Include="Source Files\common">
       <UniqueIdentifier>{0baab76d-f115-4eab-88e3-22a4dc0a816b}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Header Files\math">
+      <UniqueIdentifier>{b73bfbff-3063-4946-bccb-078e9294d8d2}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\math\primitives">
+      <UniqueIdentifier>{748d14be-fd75-4eca-900d-09f388b177c8}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\utils\Utils.cpp">
       <Filter>Source Files\utils</Filter>
     </ClCompile>
     <ClCompile Include="src\hpg\DepthResource.cpp">
-      <Filter>Source Files\hpg</Filter>
-    </ClCompile>
-    <ClCompile Include="src\hpg\FramebufferData.cpp">
       <Filter>Source Files\hpg</Filter>
     </ClCompile>
     <ClCompile Include="src\hpg\VulkanSetup.cpp">
@@ -84,15 +87,18 @@
     <ClCompile Include="src\hpg\Skybox.cpp">
       <Filter>Source Files\hpg</Filter>
     </ClCompile>
+    <ClCompile Include="src\hpg\FrameBuffer.cpp">
+      <Filter>Source Files\hpg</Filter>
+    </ClCompile>
+    <ClCompile Include="src\hpg\ShadowMap.cpp">
+      <Filter>Source Files\hpg</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\app\Application.h">
       <Filter>Header Files\app</Filter>
     </ClInclude>
     <ClInclude Include="include\hpg\DepthResource.h">
-      <Filter>Header Files\hpg</Filter>
-    </ClInclude>
-    <ClInclude Include="include\hpg\FramebufferData.h">
       <Filter>Header Files\hpg</Filter>
     </ClInclude>
     <ClInclude Include="include\hpg\Shader.h">
@@ -140,14 +146,32 @@
     <ClInclude Include="include\hpg\Skybox.h">
       <Filter>Header Files\hpg</Filter>
     </ClInclude>
+    <ClInclude Include="include\hpg\FrameBuffer.h">
+      <Filter>Header Files\hpg</Filter>
+    </ClInclude>
+    <ClInclude Include="include\common\Scene.h">
+      <Filter>Header Files\common</Filter>
+    </ClInclude>
+    <ClInclude Include="include\math\primitives\Plane.h">
+      <Filter>Header Files\math\primitives</Filter>
+    </ClInclude>
+    <ClInclude Include="include\common\types.h">
+      <Filter>Header Files\common</Filter>
+    </ClInclude>
+    <ClInclude Include="include\common\Transform.h">
+      <Filter>Header Files\math</Filter>
+    </ClInclude>
+    <ClInclude Include="include\hpg\ShadowMap.h">
+      <Filter>Header Files\hpg</Filter>
+    </ClInclude>
+    <ClInclude Include="include\common\SpotLight.h">
+      <Filter>Header Files\common</Filter>
+    </ClInclude>
+    <ClInclude Include="include\math\primitives\Cube.h">
+      <Filter>Header Files\math\primitives</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <None Include="src\shaders\deferred.frag">
-      <Filter>Source Files\shaders</Filter>
-    </None>
-    <None Include="src\shaders\deferred.vert">
-      <Filter>Source Files\shaders</Filter>
-    </None>
     <None Include="src\shaders\forward.frag">
       <Filter>Source Files\shaders</Filter>
     </None>
@@ -164,6 +188,18 @@
       <Filter>Source Files\shaders</Filter>
     </None>
     <None Include="src\shaders\skybox.frag">
+      <Filter>Source Files\shaders</Filter>
+    </None>
+    <None Include="src\shaders\shadowmap.frag">
+      <Filter>Source Files\shaders</Filter>
+    </None>
+    <None Include="src\shaders\shadowmap.vert">
+      <Filter>Source Files\shaders</Filter>
+    </None>
+    <None Include="src\shaders\composition.vert">
+      <Filter>Source Files\shaders</Filter>
+    </None>
+    <None Include="src\shaders\composition.frag">
       <Filter>Source Files\shaders</Filter>
     </None>
   </ItemGroup>

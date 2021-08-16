@@ -247,8 +247,8 @@ void GBuffer::createPipelines(VkDescriptorSetLayout* descriptorSetLayout, SwapCh
 	pipelineCreateInfo.pColorBlendState    = &colorBlendingStateInfo;
 
 	// composition pipeline
-	vertShaderModule = Shader::createShaderModule(vkSetup, Shader::readFile(DEF_VERT_SHADER));
-	fragShaderModule = Shader::createShaderModule(vkSetup, Shader::readFile(DEF_FRAG_SHADER));
+	vertShaderModule = Shader::createShaderModule(vkSetup, Shader::readFile(COMP_VERT_SHADER));
+	fragShaderModule = Shader::createShaderModule(vkSetup, Shader::readFile(COMP_FRAG_SHADER));
 	shaderStages[0]  = utils::initPipelineShaderStageCreateInfo(VK_SHADER_STAGE_VERTEX_BIT, vertShaderModule, "main");
 	shaderStages[1]  = utils::initPipelineShaderStageCreateInfo(VK_SHADER_STAGE_FRAGMENT_BIT, fragShaderModule, "main");
 
@@ -332,3 +332,4 @@ void GBuffer::updateCompositionUniformBuffer(uint32_t imageIndex, const GBuffer:
 	memcpy(data, &ubo, sizeof(ubo));
 	vkUnmapMemory(vkSetup->device, compositionUniforms.memory);
 }
+

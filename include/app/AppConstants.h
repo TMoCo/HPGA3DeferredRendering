@@ -42,11 +42,14 @@ const std::string FWD_FRAG_SHADER = "C:\\Users\\Tommy\\Documents\\COMP4\\5822Hig
 const std::string OFF_VERT_SHADER = "C:\\Users\\Tommy\\Documents\\COMP4\\5822HighPerformanceGraphics\\A3\\DeferredRendering\\src\\shaders\\offscreen.vert.spv";
 const std::string OFF_FRAG_SHADER = "C:\\Users\\Tommy\\Documents\\COMP4\\5822HighPerformanceGraphics\\A3\\DeferredRendering\\src\\shaders\\offscreen.frag.spv";
 
-const std::string DEF_VERT_SHADER = "C:\\Users\\Tommy\\Documents\\COMP4\\5822HighPerformanceGraphics\\A3\\DeferredRendering\\src\\shaders\\deferred.vert.spv";
-const std::string DEF_FRAG_SHADER = "C:\\Users\\Tommy\\Documents\\COMP4\\5822HighPerformanceGraphics\\A3\\DeferredRendering\\src\\shaders\\deferred.frag.spv";
+const std::string COMP_VERT_SHADER = "C:\\Users\\Tommy\\Documents\\COMP4\\5822HighPerformanceGraphics\\A3\\DeferredRendering\\src\\shaders\\composition.vert.spv";
+const std::string COMP_FRAG_SHADER = "C:\\Users\\Tommy\\Documents\\COMP4\\5822HighPerformanceGraphics\\A3\\DeferredRendering\\src\\shaders\\composition.frag.spv";
 
 const std::string SKY_VERT_SHADER = "C:\\Users\\Tommy\\Documents\\COMP4\\5822HighPerformanceGraphics\\A3\\DeferredRendering\\src\\shaders\\skybox.vert.spv";
 const std::string SKY_FRAG_SHADER = "C:\\Users\\Tommy\\Documents\\COMP4\\5822HighPerformanceGraphics\\A3\\DeferredRendering\\src\\shaders\\skybox.frag.spv";
+
+const std::string SHADOWMAP_VERT_SHADER = "C:\\Users\\Tommy\\Documents\\COMP4\\5822HighPerformanceGraphics\\A3\\DeferredRendering\\src\\shaders\\shadowmap.vert.spv";
+const std::string SHADOWMAP_FRAG_SHADER = "C:\\Users\\Tommy\\Documents\\COMP4\\5822HighPerformanceGraphics\\A3\\DeferredRendering\\src\\shaders\\shadowmap.frag.spv";
 
 namespace Axes {
 	// world axes

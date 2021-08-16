@@ -271,6 +271,20 @@ namespace utils {
         return blendAttachmentState;
     }
 
+    VkPipelineDynamicStateCreateInfo initPipelineDynamicStateCreateInfo(
+        VkDynamicState* pDynamicStates,
+        UI32 dynamicStateCount,
+        VkPipelineDynamicStateCreateFlags flags)
+    {
+        VkPipelineDynamicStateCreateInfo pipelineDynamicStateCreateInfo{};
+        pipelineDynamicStateCreateInfo.sType             = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
+        pipelineDynamicStateCreateInfo.pDynamicStates    = pDynamicStates;
+        pipelineDynamicStateCreateInfo.dynamicStateCount = dynamicStateCount;
+        pipelineDynamicStateCreateInfo.flags             = flags;
+        return pipelineDynamicStateCreateInfo;
+    }
+
+
     // descriptor structs
     VkDescriptorSetLayoutBinding initDescriptorSetLayoutBinding(
         uint32_t binding,

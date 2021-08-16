@@ -25,9 +25,10 @@
     <ClCompile Include="src\common\Texture.cpp" />
     <ClCompile Include="src\hpg\Buffers.cpp" />
     <ClCompile Include="src\hpg\DepthResource.cpp" />
-    <ClCompile Include="src\hpg\FramebufferData.cpp" />
+    <ClCompile Include="src\hpg\FrameBuffer.cpp" />
     <ClCompile Include="src\hpg\GBuffer.cpp" />
     <ClCompile Include="src\hpg\Image.cpp" />
+    <ClCompile Include="src\hpg\ShadowMap.cpp" />
     <ClCompile Include="src\hpg\Skybox.cpp" />
     <ClCompile Include="src\hpg\SwapChain.cpp" />
     <ClCompile Include="src\hpg\VulkanSetup.cpp" />
@@ -38,29 +39,38 @@
     <ClInclude Include="include\app\AppConstants.h" />
     <ClInclude Include="include\app\Application.h" />
     <ClInclude Include="include\common\Camera.h" />
+    <ClInclude Include="include\common\SpotLight.h" />
     <ClInclude Include="include\common\Model.h" />
     <ClInclude Include="include\common\Orientation.h" />
+    <ClInclude Include="include\common\Scene.h" />
     <ClInclude Include="include\common\Texture.h" />
+    <ClInclude Include="include\common\Transform.h" />
+    <ClInclude Include="include\common\types.h" />
     <ClInclude Include="include\hpg\Buffers.h" />
     <ClInclude Include="include\hpg\DepthResource.h" />
-    <ClInclude Include="include\hpg\FramebufferData.h" />
+    <ClInclude Include="include\hpg\FrameBuffer.h" />
     <ClInclude Include="include\hpg\GBuffer.h" />
     <ClInclude Include="include\hpg\Image.h" />
     <ClInclude Include="include\hpg\Shader.h" />
+    <ClInclude Include="include\hpg\ShadowMap.h" />
     <ClInclude Include="include\hpg\Skybox.h" />
     <ClInclude Include="include\hpg\SwapChain.h" />
     <ClInclude Include="include\hpg\VulkanSetup.h" />
+    <ClInclude Include="include\math\primitives\Cube.h" />
+    <ClInclude Include="include\math\primitives\Plane.h" />
     <ClInclude Include="include\utils\Assert.h" />
     <ClInclude Include="include\utils\Print.h" />
     <ClInclude Include="include\utils\Utils.h" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="src\shaders\deferred.frag" />
-    <None Include="src\shaders\deferred.vert" />
+    <None Include="src\shaders\composition.frag" />
+    <None Include="src\shaders\composition.vert" />
     <None Include="src\shaders\forward.frag" />
     <None Include="src\shaders\forward.vert" />
     <None Include="src\shaders\offscreen.frag" />
     <None Include="src\shaders\offscreen.vert" />
+    <None Include="src\shaders\shadowmap.frag" />
+    <None Include="src\shaders\shadowmap.vert" />
     <None Include="src\shaders\skybox.frag" />
     <None Include="src\shaders\skybox.vert" />
   </ItemGroup>

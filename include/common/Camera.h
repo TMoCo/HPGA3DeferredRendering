@@ -13,6 +13,7 @@
 #include <utils/Utils.h>
 
 #include <common/Orientation.h>
+#include <common/types.h>
 
 #include <glm/glm.hpp> // vectors, matrices
 #include <glm/gtc/quaternion.hpp> // the quaternions
@@ -34,15 +35,13 @@ enum class CameraMovement : unsigned char {
 };
 
 class Camera {
-public: 
+public:
 	//-Camera constructor----------------------------------------------------------------------------------------//
 	Camera(glm::vec3 initPos = glm::vec3(0.0f), float initAngleSpeed = 0.0f, float initPosSpeed = 0.0f) 
 		: position(initPos), angleChangeSpeed(initAngleSpeed), positionChangeSpeed(initPosSpeed) {}
 
-public:
 	//-Usefult getters-------------------------------------------------------------------------------------------//
 	glm::mat4 getViewMatrix();
-	glm::mat4 getViewMatrix(const glm::vec3& pos);
 	Orientation getOrientation();
 
 	//-Input-----------------------------------------------------------------------------------------------------//

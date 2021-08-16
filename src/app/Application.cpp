@@ -47,10 +47,9 @@ void Application::initVulkan() {
     camera = Camera({ 0.0f, 0.0f, 0.0f }, 2.0f, 10.0f);
     model.loadModel(MODEL_PATH);
 
-    lights[0] = { {10.0f, 0.0f, 0.0f, 0.0f}, {200.0f, 200.0f, 200.0f}, 20.0f }; // pos, colour, radius
-    lights[1] = { {-10.0f, 0.0f, 0.0f, 0.0f}, {0.5f, 0.5f, 0.5f}, 20.0f };
-    lights[2] = { {0.0f, 0.0f, 10.0f, 0.0f}, {0.5f, 0.5f, 0.5f}, 20.0f };
-    lights[3] = { {0.0f, 0.0f, -10.0f, 0.0f}, {0.5f, 0.5f, 0.5f}, 20.0f };
+    lights[0] = { {5.0f, -5.0f, 0.0f, 0.0f}, {0.5f, 0.5f, 0.5f}, 40.0f }; // pos, colour, radius
+
+    spotLight = SpotLight({ 5.0f, -5.0f, 0.0f }, 0.1f, 40.0f);
 
     createCommandPool(&renderCommandPool, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
     createCommandPool(&imGuiCommandPool, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
@@ -60,6 +59,7 @@ void Application::initVulkan() {
     swapChain.initSwapChain(&vkSetup, &model, &descriptorSetLayout);
     frameBuffer.initFrameBuffer(&vkSetup, &swapChain, renderCommandPool);
     gBuffer.createGBuffer(&vkSetup, &swapChain, &descriptorSetLayout, &model, renderCommandPool);
+    shadowMap.createShadowMap(&vkSetup, &descriptorSetLayout, &model,  renderCommandPool);
     
     // textures
     const std::vector<Image>* textureImages = model.getMaterialTextureData(0);
@@ -71,14 +71,31 @@ void Application::initVulkan() {
 
     skybox.createSkybox(&vkSetup, renderCommandPool);
 
+    floor = Plane(20.0f, 20.0f);
+
     // vertex buffer 
-    const std::vector<Model::Vertex>* vBuffer = model.getVertexBuffer(0);
+    std::vector<Model::Vertex>* modelVertexBuffer = model.getVertexBuffer(0);
+    // generate the vertices for a 2D plane
+    //std::vector<Model::Vertex> planeVertexBuffer = floor.getVertices();
+
+    for (auto& v : floor.getVertices()) {
+        modelVertexBuffer->push_back(v);
+    }
+
+    cube = Cube(2.0f, 2.0f, 2.0f);
+    
     VulkanBuffer::createDeviceLocalBuffer(&vkSetup, renderCommandPool, 
-        Buffer{ (unsigned char*)vBuffer->data(), vBuffer->size() * sizeof(Model::Vertex) }, // vertex data as buffer
+        Buffer{ (unsigned char*)modelVertexBuffer->data(), modelVertexBuffer->size() * sizeof(Model::Vertex) }, // vertex data as buffer
         &vertexBuffer, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
 
     // index buffer
-    const std::vector<uint32_t>* iBuffer = model.getIndexBuffer(0);
+    std::vector<uint32_t>* iBuffer = model.getIndexBuffer(0);
+    // generate indices for a quad
+    UI32 offset = static_cast<UI32>(iBuffer->size());
+    for (auto& i : floor.getIndices()) {
+        iBuffer->push_back(i + offset);
+    }
+
     VulkanBuffer::createDeviceLocalBuffer(&vkSetup, renderCommandPool, 
         Buffer{ (unsigned char*)iBuffer->data(), iBuffer->size() * sizeof(uint32_t) }, // index data as buffer
         &indexBuffer, VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
@@ -87,18 +104,23 @@ void Application::initVulkan() {
     createDescriptorSets();
 
     renderCommandBuffers.resize(swapChain.images.size());
-    imGuiCommandBuffers.resize(swapChain.images.size());
     offScreenCommandBuffers.resize(swapChain.images.size());
+    shadowMapCommandBuffers.resize(swapChain.images.size());
+    
+    imGuiCommandBuffers.resize(swapChain.images.size());
 
     createCommandBuffers(static_cast<uint32_t>(renderCommandBuffers.size()), renderCommandBuffers.data(), renderCommandPool);
-    createCommandBuffers(static_cast<uint32_t>(imGuiCommandBuffers.size()), imGuiCommandBuffers.data(), imGuiCommandPool);
     createCommandBuffers(static_cast<uint32_t>(offScreenCommandBuffers.size()), offScreenCommandBuffers.data(), renderCommandPool);
+    createCommandBuffers(static_cast<uint32_t>(shadowMapCommandBuffers.size()), shadowMapCommandBuffers.data(), renderCommandPool);
+
+    createCommandBuffers(static_cast<uint32_t>(imGuiCommandBuffers.size()), imGuiCommandBuffers.data(), imGuiCommandPool);
 
     createSyncObjects();
 
     // record commands
-    for (size_t i = 0; i < swapChain.images.size(); i++) { 
+    for (UI32 i = 0; i < swapChain.images.size(); i++) { 
         buildOffscreenCommandBuffer(i); // offscreen gbuffer commands
+        buildShadowMapCommandBuffer(offScreenCommandBuffers[i]); // final image composition
         buildCompositionCommandBuffer(i); // final image composition
     }
 }
@@ -115,29 +137,35 @@ void Application::recreateVulkanData() {
     vkDeviceWaitIdle(vkSetup.device); // wait if in use by device
 
     // destroy old swap chain dependencies
-    vkFreeCommandBuffers(vkSetup.device, renderCommandPool, static_cast<uint32_t>(renderCommandBuffers.size()), renderCommandBuffers.data());
     vkFreeCommandBuffers(vkSetup.device, imGuiCommandPool, static_cast<uint32_t>(imGuiCommandBuffers.size()), imGuiCommandBuffers.data());
-    vkFreeCommandBuffers(vkSetup.device, renderCommandPool, static_cast<uint32_t>(offScreenCommandBuffers.size()), offScreenCommandBuffers.data());
 
+    vkFreeCommandBuffers(vkSetup.device, renderCommandPool, static_cast<uint32_t>(renderCommandBuffers.size()), renderCommandBuffers.data());
+    vkFreeCommandBuffers(vkSetup.device, renderCommandPool, static_cast<uint32_t>(offScreenCommandBuffers.size()), offScreenCommandBuffers.data());
+    //vkFreeCommandBuffers(vkSetup.device, renderCommandPool, static_cast<uint32_t>(shadowMapCommandBuffers.size()), shadowMapCommandBuffers.data());
+
+    shadowMap.cleanupShadowMap();
     gBuffer.cleanupGBuffer();
-    framebufferData.cleanupFrambufferData();
+    frameBuffer.cleanupFrameBuffers();
     swapChain.cleanupSwapChain();
 
     // create new swap chain etc...
     swapChain.initSwapChain(&vkSetup, &model, &descriptorSetLayout);
-    framebufferData.initFramebufferData(&vkSetup, &swapChain, renderCommandPool);
+    frameBuffer.initFrameBuffer(&vkSetup, &swapChain, renderCommandPool);
     gBuffer.createGBuffer(&vkSetup, &swapChain, &descriptorSetLayout, &model, renderCommandPool);
+    shadowMap.createShadowMap(&vkSetup, &descriptorSetLayout, &model, renderCommandPool);
 
     createDescriptorSets();
 
     createCommandBuffers(static_cast<uint32_t>(renderCommandBuffers.size()), renderCommandBuffers.data(), renderCommandPool);
-    createCommandBuffers(static_cast<uint32_t>(imGuiCommandBuffers.size()), imGuiCommandBuffers.data(), imGuiCommandPool);
     createCommandBuffers(static_cast<uint32_t>(offScreenCommandBuffers.size()), offScreenCommandBuffers.data(), renderCommandPool);
+    createCommandBuffers(static_cast<uint32_t>(shadowMapCommandBuffers.size()), shadowMapCommandBuffers.data(), renderCommandPool);
 
-    for (size_t i = 0; i < swapChain.images.size(); i++) {
+    createCommandBuffers(static_cast<uint32_t>(imGuiCommandBuffers.size()), imGuiCommandBuffers.data(), imGuiCommandPool);
+
+    for (UI32 i = 0; i < swapChain.images.size(); i++) {
         buildOffscreenCommandBuffer(i);
         buildCompositionCommandBuffer(i);
-        buildGuiCommandBuffer(i);
+        buildShadowMapCommandBuffer(offScreenCommandBuffers[i]);
     }
 
     // update ImGui aswell
@@ -232,7 +260,9 @@ void Application::createDescriptorSetLayout() {
         // binding 3: albedo texture
         utils::initDescriptorSetLayoutBinding(3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT),
         // binding 4: fragment shader uniform buffer 
-        utils::initDescriptorSetLayoutBinding(4, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT)
+        utils::initDescriptorSetLayoutBinding(4, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT),
+        // binding 5: fragment shader shadow map sampler
+        utils::initDescriptorSetLayoutBinding(5, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
     };
 
     VkDescriptorSetLayoutCreateInfo layoutCreateInf{};
@@ -249,6 +279,7 @@ void Application::createDescriptorSets() {
     std::vector<VkWriteDescriptorSet> writeDescriptorSets;
 
     std::vector<VkDescriptorSetLayout> layouts(swapChain.images.size(), descriptorSetLayout);
+
     VkDescriptorSetAllocateInfo allocInfo = utils::initDescriptorSetAllocInfo(descriptorPool, 1, layouts.data());
 
     // offscreen descriptor set
@@ -262,7 +293,7 @@ void Application::createDescriptorSets() {
     offScreenUboInf.offset = 0;
     offScreenUboInf.range  = sizeof(GBuffer::OffScreenUbo);
     
-    // offscrene textures in scene
+    // offscreen textures in scene
     std::vector<VkDescriptorImageInfo> offScreenTexDescriptors(textures.size());
     for (size_t i = 0; i < textures.size(); i++) {
         offScreenTexDescriptors[i].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
@@ -307,6 +338,24 @@ void Application::createDescriptorSets() {
 
     vkUpdateDescriptorSets(vkSetup.device, static_cast<uint32_t>(writeDescriptorSets.size()), writeDescriptorSets.data(), 0, nullptr);
 
+    // shadowMap descriptor set
+    if (vkAllocateDescriptorSets(vkSetup.device, &allocInfo, &shadowMapDescriptorSet) != VK_SUCCESS) {
+        throw std::runtime_error("failed to allocate descriptor sets!");
+    }
+
+    // shadowMap uniform
+    VkDescriptorBufferInfo shadowMapUboInf{};
+    shadowMapUboInf.buffer = shadowMap.shadowMapUniformBuffer.buffer;
+    shadowMapUboInf.offset = 0;
+    shadowMapUboInf.range = sizeof(ShadowMap::UBO);
+
+    writeDescriptorSets = {
+        // binding 0: vertex shader uniform buffer 
+        utils::initWriteDescriptorSet(shadowMapDescriptorSet, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, &shadowMapUboInf),
+    };
+
+    vkUpdateDescriptorSets(vkSetup.device, static_cast<uint32_t>(writeDescriptorSets.size()), writeDescriptorSets.data(), 0, nullptr);
+
     // composition descriptor sets
     allocInfo.descriptorSetCount = static_cast<uint32_t>(layouts.size());
     compositionDescriptorSets.resize(layouts.size());
@@ -315,7 +364,7 @@ void Application::createDescriptorSets() {
         throw std::runtime_error("failed to allocate descriptor sets!");
     }
 
-    // image descriptors for gBuffer color attachments
+    // image descriptors for gBuffer color attachments and shadow map
     VkDescriptorImageInfo texDescriptorPosition{};
     texDescriptorPosition.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
     texDescriptorPosition.imageView = gBuffer.attachments["position"].imageView;
@@ -330,6 +379,11 @@ void Application::createDescriptorSets() {
     texDescriptorAlbedo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
     texDescriptorAlbedo.imageView = gBuffer.attachments["albedo"].imageView;
     texDescriptorAlbedo.sampler = gBuffer.colourSampler;
+
+    VkDescriptorImageInfo texDescriptorShadowMap{};
+    texDescriptorShadowMap.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    texDescriptorShadowMap.imageView = shadowMap.imageView;
+    texDescriptorShadowMap.sampler = shadowMap.depthSampler;
 
     for (size_t i = 0; i < compositionDescriptorSets.size(); i++) {
         // forward rendering uniform buffer
@@ -348,6 +402,8 @@ void Application::createDescriptorSets() {
             utils::initWriteDescriptorSet(compositionDescriptorSets[i], 3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &texDescriptorAlbedo),
             // binding 4: fragment shader uniform
             utils::initWriteDescriptorSet(compositionDescriptorSets[i], 4, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, &compositionUboInf),
+            // binding 5: shadow map
+            utils::initWriteDescriptorSet(compositionDescriptorSets[i], 5, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &texDescriptorShadowMap),
         };
 
         // update according to the configuration
@@ -383,7 +439,7 @@ void Application::createCommandBuffers(uint32_t count, VkCommandBuffer* commandB
     }
 }
 
-void Application::buildCompositionCommandBuffer(size_t cmdBufferIndex) {
+void Application::buildCompositionCommandBuffer(UI32 cmdBufferIndex) {
     VkCommandBufferBeginInfo commandBufferBeginInfo = utils::initCommandBufferBeginInfo();
 
     std::array<VkClearValue, 2> clearValues{};
@@ -393,7 +449,7 @@ void Application::buildCompositionCommandBuffer(size_t cmdBufferIndex) {
     VkRenderPassBeginInfo renderPassBeginInfo{};
     renderPassBeginInfo.sType             = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
     renderPassBeginInfo.renderPass        = swapChain.renderPass;
-    renderPassBeginInfo.framebuffer       = framebufferData.framebuffers[cmdBufferIndex];
+    renderPassBeginInfo.framebuffer       = frameBuffer.framebuffers[cmdBufferIndex];
     renderPassBeginInfo.renderArea.offset = { 0, 0 };
     renderPassBeginInfo.renderArea.extent = swapChain.extent;
     renderPassBeginInfo.clearValueCount   = static_cast<uint32_t>(clearValues.size());
@@ -417,7 +473,7 @@ void Application::buildCompositionCommandBuffer(size_t cmdBufferIndex) {
     }
 }
 
-void Application::buildGuiCommandBuffer(size_t cmdBufferIndex) {
+void Application::buildGuiCommandBuffer(UI32 cmdBufferIndex) {
     VkCommandBufferBeginInfo commandbufferInfo = utils::initCommandBufferBeginInfo(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
 
     if (vkBeginCommandBuffer(imGuiCommandBuffers[cmdBufferIndex], &commandbufferInfo) != VK_SUCCESS) {
@@ -431,7 +487,7 @@ void Application::buildGuiCommandBuffer(size_t cmdBufferIndex) {
     VkRenderPassBeginInfo renderPassBeginInfo = {};
     renderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
     renderPassBeginInfo.renderPass               = swapChain.imGuiRenderPass;
-    renderPassBeginInfo.framebuffer              = framebufferData.imGuiFramebuffers[cmdBufferIndex];
+    renderPassBeginInfo.framebuffer              = frameBuffer.imGuiFramebuffers[cmdBufferIndex];
     renderPassBeginInfo.renderArea.extent.width  = swapChain.extent.width;
     renderPassBeginInfo.renderArea.extent.height = swapChain.extent.height;
     renderPassBeginInfo.clearValueCount          = 1;
@@ -447,7 +503,7 @@ void Application::buildGuiCommandBuffer(size_t cmdBufferIndex) {
     }
 }
 
-void Application::buildOffscreenCommandBuffer(size_t cmdBufferIndex) {
+void Application::buildOffscreenCommandBuffer(UI32 cmdBufferIndex) {
     VkCommandBufferBeginInfo commandBufferBeginInfo = utils::initCommandBufferBeginInfo();
 
     // Clear values for all attachments written in the fragment shader
@@ -479,7 +535,7 @@ void Application::buildOffscreenCommandBuffer(size_t cmdBufferIndex) {
     VkDeviceSize offset = 0; // offset into vertex buffer
     vkCmdBindVertexBuffers(offScreenCommandBuffers[cmdBufferIndex], 0, 1, &vertexBuffer.buffer, &offset);
     vkCmdBindIndexBuffer(offScreenCommandBuffers[cmdBufferIndex], indexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
-    vkCmdDrawIndexed(offScreenCommandBuffers[cmdBufferIndex], model.getNumIndices(0), 1, 0, 0, 0);
+    vkCmdDrawIndexed(offScreenCommandBuffers[cmdBufferIndex], model.getNumIndices(0) + 6, 1, 0, 0, 0);
 
     // skybox pipeline
     vkCmdBindPipeline(offScreenCommandBuffers[cmdBufferIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, gBuffer.skyboxPipeline);
@@ -490,7 +546,57 @@ void Application::buildOffscreenCommandBuffer(size_t cmdBufferIndex) {
 
     vkCmdEndRenderPass(offScreenCommandBuffers[cmdBufferIndex]);
 
-    if (vkEndCommandBuffer(offScreenCommandBuffers[cmdBufferIndex]) != VK_SUCCESS) {
+    //if (vkEndCommandBuffer(offScreenCommandBuffers[cmdBufferIndex]) != VK_SUCCESS) {
+    //    throw std::runtime_error("failed to record command buffer!");
+    //}
+}
+
+void Application::buildShadowMapCommandBuffer(VkCommandBuffer cmdBuffer) {
+    VkCommandBufferBeginInfo commandBufferBeginInfo = utils::initCommandBufferBeginInfo();
+
+    // Clear values for all attachments written in the fragment shader
+    VkClearValue clearValue{};
+    clearValue.depthStencil = { 1.0f, 0 };
+
+    VkRenderPassBeginInfo renderPassBeginInfo{};
+    renderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+    renderPassBeginInfo.renderPass = shadowMap.shadowMapRenderPass;
+    renderPassBeginInfo.framebuffer = shadowMap.shadowMapFrameBuffer;
+    renderPassBeginInfo.renderArea.extent = { shadowMap.extent, shadowMap.extent };
+    renderPassBeginInfo.clearValueCount = 1;
+    renderPassBeginInfo.pClearValues = &clearValue;
+
+    // implicitly resets cmd buffer
+    //if (vkBeginCommandBuffer(cmdBuffer, &commandBufferBeginInfo) != VK_SUCCESS) {
+    //    throw std::runtime_error("failed to begin recording command buffer!");
+    //}
+
+    vkCmdBeginRenderPass(cmdBuffer, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+
+    VkExtent2D extent{ shadowMap.extent, shadowMap.extent };
+    VkViewport viewport{ 0.0f, 0.0f, (F32)extent.width, (F32)extent.height, 0.0f, 1.0f };
+    VkRect2D scissor{ { 0, 0 }, extent };
+
+    vkCmdSetViewport(cmdBuffer, 0, 1, &viewport);
+
+    vkCmdSetScissor(cmdBuffer, 0, 1, &scissor);
+
+    vkCmdSetDepthBias(cmdBuffer, shadowMap.depthBiasConstant, 0.0f, shadowMap.depthBiasSlope);
+
+    // scene pipeline
+    vkCmdBindPipeline(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, shadowMap.shadowMapPipeline);
+    vkCmdBindDescriptorSets(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, shadowMap.layout, 0, 1,
+        &shadowMapDescriptorSet, 0, nullptr);
+
+    VkDeviceSize offset = 0; // offset into vertex buffer
+    vkCmdBindVertexBuffers(cmdBuffer, 0, 1, &vertexBuffer.buffer, &offset);
+    vkCmdBindIndexBuffer(cmdBuffer, indexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
+    
+    vkCmdDrawIndexed(cmdBuffer, model.getNumIndices(0) + 6, 1, 0, 0, 0);
+
+    vkCmdEndRenderPass(cmdBuffer);
+
+    if (vkEndCommandBuffer(cmdBuffer) != VK_SUCCESS) {
         throw std::runtime_error("failed to record command buffer!");
     }
 }
@@ -606,21 +712,24 @@ void Application::drawFrame() {
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
     submitInfo.pWaitDstStageMask = &waitStages;
 
-    // offscreen rendering
+    // offscreen rendering (scene data for gbuffer and shadow map)
     submitInfo.waitSemaphoreCount   = 1;
     submitInfo.pWaitSemaphores      = &imageAvailableSemaphores[currentFrame];
+
     submitInfo.signalSemaphoreCount = 1;
     submitInfo.pSignalSemaphores    = &offScreenSemaphores[currentFrame];
-
+    
     submitInfo.commandBufferCount = 1;
     submitInfo.pCommandBuffers    = &offScreenCommandBuffers[currentFrame];
 
     if (vkQueueSubmit(vkSetup.graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE) != VK_SUCCESS) {
         throw std::runtime_error("failed to submit draw command buffer!");
     }
+
     // scene and Gui rendering
     submitInfo.waitSemaphoreCount   = 1;
     submitInfo.pWaitSemaphores      = &offScreenSemaphores[currentFrame];
+
     submitInfo.signalSemaphoreCount = 1;
     submitInfo.pSignalSemaphores    = &renderFinishedSemaphores[currentFrame];
 
@@ -670,9 +779,10 @@ void Application::setGUI() {
     ImGui_ImplVulkan_NewFrame(); // empty
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
-    const char* attachments[] = { "composition", "position", "normal", "albedo", "depth" };
+    const char* attachments[] = { "composition", "position", "normal", "albedo", "depth", "shadow map", "shadow NDC", "camera NDC", "shadow depth" };
 
     ImGui::Begin("Options", nullptr, ImGuiWindowFlags_NoMove);
+    ImGui::Text("Application %.1f FPS", ImGui::GetIO().Framerate);
     ImGui::BulletText("Transforms:");
     ImGui::SliderFloat3("translate", &translate[0], -2.0f, 2.0f);
     ImGui::SliderFloat3("rotate", &rotate[0], -180.0f, 180.0f);
@@ -686,8 +796,9 @@ void Application::setGUI() {
 // Uniforms
 
 void Application::updateUniformBuffers(uint32_t currentImage) {
+
     // offscreen ubo
-    glm::mat4 proj = glm::perspective(glm::radians(45.0f), swapChain.extent.width / (float)swapChain.extent.height, 0.1f, 10.0f);
+    glm::mat4 proj = glm::perspective(glm::radians(45.0f), swapChain.extent.width / (float)swapChain.extent.height, 0.1f, 40.0f);
     proj[1][1] *= -1.0f; // y coordinates inverted, Vulkan origin top left vs OpenGL bottom left
 
     glm::mat4 model = glm::translate(glm::mat4(1.0f), translate);
@@ -705,6 +816,10 @@ void Application::updateUniformBuffers(uint32_t currentImage) {
 
     gBuffer.updateOffScreenUniformBuffer(offscreenUbo);
 
+    // shadow map ubo
+    ShadowMap::UBO shadowMapUbo = { spotLight.getMVP(model) };
+    shadowMap.updateShadowMapUniformBuffer(shadowMapUbo); 
+
     // skybox ubo
     Skybox::UBO skyboxUbo{};
     skyboxUbo.view = glm::mat4(glm::mat3(camera.getViewMatrix()));
@@ -715,10 +830,14 @@ void Application::updateUniformBuffers(uint32_t currentImage) {
     // composition ubo
     GBuffer::CompositionUBO compositionUbo = {};
     compositionUbo.guiData = { camera.position, attachmentNum };
-    compositionUbo.lights[0] = lights[0]; // pos, colour, radius
+    compositionUbo.depthMVP = spotLight.getMVP();
+    compositionUbo.cameraMVP = offscreenUbo.projection * offscreenUbo.view;
+    compositionUbo.lights[0] = lights[0]; // pos, colour, radius 
+    /*
     compositionUbo.lights[1] = lights[1];
     compositionUbo.lights[2] = lights[2];
     compositionUbo.lights[3] = lights[3];
+    */
     gBuffer.updateCompositionUniformBuffer(currentImage, compositionUbo);
 }
 
@@ -819,7 +938,7 @@ void Application::cleanup() {
     // call the function we created for destroying the swap chain and frame buffers
     // in the reverse order of their creation
     gBuffer.cleanupGBuffer();
-    framebufferData.cleanupFrambufferData();
+    frameBuffer.cleanupFrameBuffers();
     swapChain.cleanupSwapChain();
 
     // cleanup the descriptor pools and descriptor set layouts

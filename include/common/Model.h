@@ -63,8 +63,8 @@ public:
     std::array<VkVertexInputAttributeDescription, 4> getAttributeDescriptions(uint32_t primitiveNum);
 
     //-Get buffers-----------------------------------------------------------------------------------------------//
-    const std::vector<Vertex>* getVertexBuffer(uint32_t primitiveNum);
-    const std::vector<uint32_t>* getIndexBuffer(uint32_t primitiveNum);
+    std::vector<Vertex>* getVertexBuffer(uint32_t primitiveNum);
+    std::vector<uint32_t>* getIndexBuffer(uint32_t primitiveNum);
 
     //-Get material textures-------------------------------------------------------------------------------------//
     const std::vector<Image>* getMaterialTextureData(uint32_t primitiveNum);

@@ -51,7 +51,6 @@ void DepthResource::cleanupDepthResource() {
     depthImage.cleanupImage(vkSetup);
 }
 
-
 //
 // Helper functions
 //

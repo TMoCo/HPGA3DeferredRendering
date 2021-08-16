@@ -286,7 +286,7 @@ std::array<VkVertexInputAttributeDescription, 4> Model::getAttributeDescriptions
     return attributeDescriptions;
 }
 
-const std::vector<Model::Vertex>* Model::getVertexBuffer(uint32_t primitiveNum) {
+std::vector<Model::Vertex>* Model::getVertexBuffer(uint32_t primitiveNum) {
     // create array for vertices
     vertices.resize(getNumVertices(primitiveNum));
     m_assert(vertices.size() > 0, "No vertex data in primitive...");
@@ -313,7 +313,7 @@ const std::vector<Model::Vertex>* Model::getVertexBuffer(uint32_t primitiveNum) 
     return &vertices;
 }
 
-const std::vector<uint32_t>* Model::getIndexBuffer(uint32_t primitiveNum) {
+std::vector<uint32_t>* Model::getIndexBuffer(uint32_t primitiveNum) {
     tinygltf::Accessor indexAccessor =  model.accessors[model.meshes[0].primitives[primitiveNum].indices];
 
     // get the number of indices 

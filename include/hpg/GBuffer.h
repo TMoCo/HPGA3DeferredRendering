@@ -40,7 +40,9 @@ public:
 
 	struct CompositionUBO {
 		glm::vec4 guiData;
-		Light lights[4];
+		glm::mat4 depthMVP;
+		glm::mat4 cameraMVP;
+		Light lights[1];
 	};
 
 	//-Framebuffer attachment------------------------------------------------------------------------------------//

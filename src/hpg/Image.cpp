@@ -66,7 +66,6 @@ VkImageView VulkanImage::createImageView(const VulkanSetup* vkSetup, const VkIma
 }
 
 void VulkanImage::transitionImageLayout(const VulkanSetup* vkSetup, const VulkanImage::LayoutTransitionInfo& transitionData) {
-
     // images may have different layout, specify which layout we are transitioning to and from for optimal layout 
     VkCommandBuffer commandBuffer = utils::beginSingleTimeCommands(&vkSetup->device, transitionData.renderCommandPool);
     
@@ -205,4 +204,17 @@ VulkanImage::ImageFormatSupportDetails VulkanImage::queryFormatSupport(VkPhysica
         PRINT("!!! format %i not supported !!!\n", format);
     }
     return details;
+}
+
+VkBool32 VulkanImage::formatIsFilterable(VkPhysicalDevice physicalDevice, VkFormat format, VkImageTiling tiling) {
+    VkFormatProperties formatProps;
+    vkGetPhysicalDeviceFormatProperties(physicalDevice, format, &formatProps);
+
+    if (tiling == VK_IMAGE_TILING_OPTIMAL)
+        return formatProps.optimalTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT;
+
+    if (tiling == VK_IMAGE_TILING_LINEAR)
+        return formatProps.linearTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT;
+
+    return false;
 }

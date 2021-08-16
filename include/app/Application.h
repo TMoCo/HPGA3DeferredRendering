@@ -13,6 +13,11 @@
 
 #include <common/Model.h> // the model class
 #include <common/Camera.h> // the camera struct
+#include <common/SpotLight.h>
+#include <common/types.h>
+
+#include <math/primitives/Plane.h>
+#include <math/primitives/Cube.h>
 
 // classes for vulkan
 #include <hpg/VulkanSetup.h>
@@ -21,6 +26,7 @@
 #include <hpg/GBuffer.h>
 #include <hpg/Buffers.h>
 #include <hpg/Skybox.h>
+#include <hpg/ShadowMap.h>
 
 // glfw window library
 #define GLFW_INCLUDE_VULKAN
@@ -38,6 +44,7 @@
 #include <chrono> // time 
 
 class Application {
+
 public:
     void run();
 
@@ -66,9 +73,10 @@ private:
     void createCommandBuffers(uint32_t count, VkCommandBuffer* commandBuffers, VkCommandPool& commandPool);
 
     //-Record command buffers for rendering (geom and gui)-------------------------------------------------------//
-    void buildCompositionCommandBuffer(size_t cmdBufferIndex);
-    void buildGuiCommandBuffer(size_t cmdBufferIndex);
-    void buildOffscreenCommandBuffer(size_t cmdBufferIndex);
+    void buildCompositionCommandBuffer(UI32 cmdBufferIndex);
+    void buildGuiCommandBuffer(UI32 cmdBufferIndex);
+    void buildOffscreenCommandBuffer(UI32 cmdBufferIndex);
+    void buildShadowMapCommandBuffer(VkCommandBuffer cmdBuffer);
 
     //-Window/Input Callbacks------------------------------------------------------------------------------------//
     static void framebufferResizeCallback(GLFWwindow* window, int width, int height);
@@ -105,9 +113,16 @@ private:
     VulkanBuffer indexBuffer;
     std::vector<Texture> textures;
 
-    Light lights[4];
+    Light lights[1];
+
+    SpotLight spotLight;
+
+    ShadowMap shadowMap;
 
     Camera camera;
+
+    Plane floor;
+    Cube cube;
 
     VkDescriptorPool descriptorPool;
     VkDescriptorSetLayout descriptorSetLayout;
@@ -115,10 +130,12 @@ private:
     std::vector<VkDescriptorSet> compositionDescriptorSets; 
     VkDescriptorSet offScreenDescriptorSet;
     VkDescriptorSet skyboxDescriptorSet;
+    VkDescriptorSet shadowMapDescriptorSet;
 
     VkCommandPool renderCommandPool;
     std::vector<VkCommandBuffer> offScreenCommandBuffers;
     std::vector<VkCommandBuffer> renderCommandBuffers;
+    std::vector<VkCommandBuffer> shadowMapCommandBuffers;
 
     VkCommandPool imGuiCommandPool;
     std::vector<VkCommandBuffer> imGuiCommandBuffers;
