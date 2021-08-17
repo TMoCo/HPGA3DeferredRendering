@@ -1,9 +1,9 @@
 # VulkanDeferredRendering
 Vulkan deferred rendering demo, originally made for HPG course @ University of Leeds.
 
-After leaving this for a couple of months, I've decided to make this a bit of mish mash of various graphics techniques. I'm going to add things like shadows, HDR and other post processing effects, animated materials and alpha blending for some nice foliage... Eventually I want to be able to make a small game that has some nice graphics in it, using this code. Once I feel I am comfortable enough with rendering by bashing my head against the beautiful brick wall that is Vulkan, I will recycle the knowledge I have of games engineering to make a minimal game engine for the aforementionned game.
+Improved on by adding a skybox and shadow mapping. This is by no means highly optimized code, but it works. Current implementation separates render passes inefficiently and does not make use of Vulkan's subpasses, this will be updated in future work
 
-In the meantime, this is what I've been able to do. It ain't much, but it's honest work!
+Output obtained:
 ![Suzanne is casting shadows now! Good for her 🐵](https://user-images.githubusercontent.com/56483943/129732448-1c87eba4-5774-406e-ae30-6853dd4b05f3.png)
 
 
