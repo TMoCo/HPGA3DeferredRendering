@@ -24,7 +24,19 @@ void ShadowMap::createShadowMap(VulkanSetup* pVkSetup, VkDescriptorSetLayout* de
 }
 
 void ShadowMap::cleanupShadowMap() {
+	shadowMapUniformBuffer.cleanupBufferData(vkSetup->device);
 
+	vkDestroySampler(vkSetup->device, depthSampler, nullptr);
+
+	vkDestroyFramebuffer(vkSetup->device, shadowMapFrameBuffer, nullptr);
+
+	vkDestroyPipeline(vkSetup->device, shadowMapPipeline, nullptr);
+	vkDestroyPipelineLayout(vkSetup->device, layout, nullptr);
+
+	vkDestroyRenderPass(vkSetup->device, shadowMapRenderPass, nullptr);
+
+	vkDestroyImageView(vkSetup->device, imageView, nullptr);
+	vulkanImage.cleanupImage(vkSetup);
 }
 
 void ShadowMap::createAttachment(const VkCommandPool& cmdPool) {
@@ -121,7 +133,7 @@ void ShadowMap::createShadowMapSampler() {
 	samplerCreateInfo.magFilter = filter;
 	samplerCreateInfo.minFilter = filter;
 	samplerCreateInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
-	samplerCreateInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+	samplerCreateInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
 	samplerCreateInfo.addressModeV = samplerCreateInfo.addressModeU;
 	samplerCreateInfo.addressModeW = samplerCreateInfo.addressModeU;
 	samplerCreateInfo.mipLodBias = 0.0f;
@@ -129,6 +141,8 @@ void ShadowMap::createShadowMapSampler() {
 	samplerCreateInfo.minLod = 0.0f;
 	samplerCreateInfo.maxLod = 1.0f;
 	samplerCreateInfo.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
+	samplerCreateInfo.compareEnable = VK_TRUE; // for sampling with sampler2DShadow
+	samplerCreateInfo.compareOp = VK_COMPARE_OP_GREATER;
 	
 	if (vkCreateSampler(vkSetup->device, &samplerCreateInfo, nullptr, &depthSampler)) {
 		throw std::runtime_error("Could not create GBuffer colour sampler");
